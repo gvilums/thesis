@@ -1,0 +1,37 @@
+# Variance Spaces in Generated Code
+
+Even for a comprehensive code generation template, which takes program specifications in some format, and transforms them into C code for the UPMEM platform, there are several points of variation, where a decision about some numerical quantity has to be made.
+
+For the simplest case (where we image a set of MAP and FILTER steps, followed by a final REDUCE step), we can vary the following quantities:
+
+## Number of tasklets
+More tasklets
++ Better Latency Hiding => performance
+- More WRAM usage (stack, cache, etc.)
+
+## Size of tasklet-local cache
++ Better performance due to less frequent copies from MRAM
+- More WRAM usage
+
+## Number of Reduction variables
+We can vary the total number of reduction variables used. The extreme cases are
+One per tasklet vs. One for entire DPU (compare PrIM small vs. large histogram)
+But we can also introduce intermediate solutions, e.g. One reduction variable for every two tasklets
+When increasing the number of reduction variables, we get
++ Better performance due to reduction or elimination of locking
+- More WRAM usage
+
+
+Beyond these knobs, general WRAM usage is also impacted by the total size of the global state, and the amount of stack reserved for each variable.
+
+Effectively, this gives us an optimization problem:
+Given a constrained amount of WRAM, we want to choose the above values to
+- maximize performance
+- stay within the WRAM constraints
+
+
+If the program does not use recursion (which we might enforce), the maximum stack usage of a tasklet can be computed statically (using dpu-stack-analyzer).
+At that point, we could actually try to deterministically compute solutions which use as much WRAM as possible without going over the available amount, thereby maximizing performance (as more used WRAM should imply better performance).
+
+This is also a point where a compiler/code generator could achieve improved performance over a naive programmer:
+Programmers usually will not exploit _all_ of the available WRAM on a DPU.

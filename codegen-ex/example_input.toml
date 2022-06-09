@@ -1,0 +1,41 @@
+# An example pipeline to be compiled for execution using UPMEM
+
+[pipeline]
+name = "string_process"
+# declares the input data stream as colelction of 16-byte chunks of unsigned characters
+input = { type = "uint8_t", count = 16 }
+# declares variables which are global for all executions
+global = [
+    { name = "comparison", type = "unsigned char", count = 8 },
+    { name = "zero_vec", type = "unsigned char", count = 4}
+]
+
+
+[[stages]]
+# this performs a map operation on the data
+kind = "map"
+output = { type = "uint8_t", count = 8 } # output format of this pipeline stage
+sysincludes = ["string.h"]
+program = """
+memcpy(output, input, 8);
+for (size_t i = 0; i < 8; ++i) {
+    output[i] *= 2;
+}
+""" 
+
+[[stages]]
+# filters data elements by a predicate
+kind = "filter"
+program = """
+output = memcmp(input, comparison) != 0;
+""" 
+
+[[stages]]
+kind = "reduce"
+identity = "zero_vec"
+output = { type = "uint8_t", count = 4 }
+program = """
+for (size_t i = 0; i < 4; ++i) {
+    output[i] = input0[i] + input1[i];
+}
+"""

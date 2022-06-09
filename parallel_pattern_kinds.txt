@@ -1,0 +1,79 @@
+# PARSEC parallel patterns usage types
+
+MAP with constant size input and small global data: Swaptions, Blackscholes
+ => should be quite straightforward (data-wise, disregarding FP performance)
+
+MAP with constant size input, but random output: StreamCluster
+ => would need reworking, potentially into multiple map/reduce phases to collect and redistribute output from each map phase
+
+MAP with constant size input, but large global data: Raytrace
+ => feasible, but need to store global data in MRAM and cache it somehow
+
+Bodytrack
+## Row-wise filter:
+- MAP over variable size input arrays (image rows)
+- Within each row, parallelism is possible but requires more flexible data access
+ => Possible approach: Map full rows onto DPUs, perform row operations in parallel using tasklets (or use one tasklet per row, and map as many rows onto each DPU as there are tasklets)
+## Column-wise filter:
+- Difficult to do, because need to access data in highly strided manner
+ => only feasible approach: transpose image, then apply row-wise filter
+
+
+## Full 2D filter: Difficult to do, maybe using image tiling
+
+
+
+
+
+
+# PrIM benchmarks expressability with parallel patterns:
+Vector addition: trivial, but not directly expressible with current feature set: need multiple inputs to single map
+
+// TODO rethink the Matmul examples
+Matrix-vector multiplication: also not difficult, but need a better way to express how 2d matrix is distributed onto dpus
+Sparse Matrix-vector multiplication: 
+?
+
+
+Select:
+doable, by collecting into local buffers and then unifying buffers at the end
+could also be done more efficiently by first evaluating predicate for all values
+
+Unique:
+Not quite clear, probably better expressed by some form of reduction => would like reduction with dynamically sized outputs, i.e. reduction on dynamic vectors
+
+
+Binary Search:
+Search itself: doable without issue. However: implementing it as binary search is difficult
+also need reduction in many values
+
+
+Time Series:
+?
+
+BFS:
+?
+
+MLP:
+?
+
+Needleman-Wunsch:
+?
+
+Histogram Small:
+Straightforwardly doable as simple map followed by reduction
+
+Histogram Large:
+Unclear how to implement...
+Maybe could automatically use locking if reduction value is too large to be materialized on each tasklet
+
+Reduction:
+Straightforward
+
+Prefix Sum
+not doable in single iteration
+
+
+
+Underlying Question: How does the work decompose?
+ - In some cases, the decomposition is linear, and we do some processing on each element

@@ -1,0 +1,22 @@
+How do we implement the previously discussed techniques _without_ a final reduction phase?
+
+Main difficulty:
+We have multiple tasklets working on separate regions of the input data, and we don't know the size of the final outut, because we don't know how many elements will be filtered out.
+
+If we don't care about getting a contiguous MRAM buffer as final output, we can just have each DPU collect into an MRAM buffer, and then perform multiple CPU copies.
+However: CPU-DPU copies have significant overheads, and this approach increases the number of copies by the number of tasklets per DPU (possibly 16-fold)
+
+Instead, it could make sense to compact the buffer after the computations are done:
+1. Compute prefix sum of buffer sizes among tasklets (serially or in parallel, probably does not make a big difference)
+2. Each tasklet copies local buffer into this global buffer with the given offset. This can be performed in parallel by all tasklets
+
+
+A different approach could be to instead pre-compute the final number of elements passing the filter. Then, the correct MRAM offsets can be identified immediately, and the computed elements can be streamed out to the correct MRAM locations.
+However, this approach requires computing each element twice (or at least running the counting operation to the first filter). 
+This comes down to a trade-off between the following two factors:
+1. Cost of computing until final filter 
+2. Cost of moving resulting elements in MRAM
+
+These factors are a function of the computational complexity, and the proportion of elements remaining after all filters:
+- The smaller the number of remaining elements, the cheaper it is to perform a final MRAM to MRAM copy
+- The less expensive the computation, the cheaper it is to precompute the resulting number of elements

@@ -1,0 +1,29 @@
+Variables in all templates:
+- number of tasklets
+- read buffer size
+
+When generating code, the following templates (with their additional variables) will be used:
+
+filter/map/reduce:
+- Fully Local Reduction (effectively setting #ReductionVars == #Tasklets)
+	- Each tasklet has own reduction variable (accessed without locks)
+	- After each tasklet finishes it's work, compute final reduction output
+- Shared Reduction Variables
+	- Multiple tasklets may share reduction variables (e.g. one var per two/four/eight/etc. tasklets)
+	- Access to variables protected through locks 
+		=> Require commutativity in reduction function, because updates may occur out of order of original elements
+		Is there some other way to partition the data s.t. commutativity is not required?
+		We could have all tasklets sharing a reduction variable read from the same data stream,
+		and operate in lock-step. What are the synchronization overheads of that?
+		General question: How much do we even care about the commutativity requirement? How often do we need order?
+	- Additional Variable: number of reduction variables
+
+filter/map:
+- Pre-filter & Global Aggregate
+	- Compute number of elements surviving all filters, per tasklet
+	- Compute prefix sum to get MRAM offset
+	- Reperform computation with streaming output to correct MRAM location
+- Local Aggregate & Global Coalescing
+	- Directly aggregate all surviving elements into per-tasklet MRAM buffer
+	- Compute prefix sum of output buffer sizes to get final offset
+	- Copy own output buffer to final offset

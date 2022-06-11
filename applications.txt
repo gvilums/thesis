@@ -1,0 +1,14 @@
+Could look at Swaptions and BlackScholes for reference, but these are not really interesting applications because their parallel structure is very simple
+
+Instead, might look at subset of PrIM applications:
+- Select
+- Histogram
+- Reduction
+
+Can introduce variations of these benchmarks, too. For example
+- In Histogram, vary the histogram granularity, and look at tradeoffs for number of reduction variables vs. WRAM usage
+- In Select, vary the selectivity of the predicate e.g. low/medium/large fraction of elements selected and returned, and compare efficiency of the two different filtering approaches
+
+What other interesting applications are there?
+
+

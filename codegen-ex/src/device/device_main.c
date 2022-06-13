@@ -2,6 +2,8 @@
 #include <handshake.h>
 #include <mram.h>
 #include <seqread.h>
+#include <mutex.h>
+#include <barrier.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,6 +13,16 @@
 
 #define INPUT_BUF_SIZE (1 << 16)
 #define LOCAL_BUF_SIZE (1 << 8)
+
+#define REDUCTION_VAR_COUNT 16
+
+
+typedef uint32_t _input_t;
+typedef uint32_t _stage_0_t;
+typedef _stage_0_t _stage_1_t;
+typedef uint32_t _stage_2_t;
+typedef uint32_t _reduction_t;
+
 
 #define INPUT_TYPE uint32_t
 #define STAGE_0_TYPE uint32_t
@@ -26,6 +38,12 @@
 
 #define INPUT_ELEM_SIZE (sizeof(INPUT_TYPE) * INPUT_ARR_SIZE)
 #define REDUCTION_ELEM_SIZE (sizeof(REDUCTION_TYPE) * REDUCTION_ARR_SIZE)
+
+#if REDUCTION_VAR_COUNT < NR_TASKLETS
+#define SYNCHRONIZE_REDUCTION
+#elif REDUCTION_VAR_COUNT > NR_TASKLETS
+#error Cannot have more reduction variables than tasklets
+#endif
 
 #if INPUT_BUF_SIZE % NR_TASKLETS != 0
 #error "Buffer not evenly divided by number of tasklets"
@@ -52,23 +70,25 @@ __host REDUCTION_TYPE reduction_output[REDUCTION_ARR_SIZE];
 __host STAGE_0_TYPE comparison[STAGE_0_ARR_SIZE];
 __host REDUCTION_TYPE zero_vec[REDUCTION_ARR_SIZE];
 
-// reduction temporaries (one per thread)
-uint32_t tl_reduction_val[NR_TASKLETS][REDUCTION_ARR_SIZE];
+
+// values needed for synchronizing reduction
+REDUCTION_TYPE reduction_vars[REDUCTION_VAR_COUNT][REDUCTION_ARR_SIZE];
+uint8_t __attribute__((section(".atomic"))) reduction_mutexes[REDUCTION_VAR_COUNT];
+BARRIER_INIT(final_reduction_barrier, NR_TASKLETS);
+BARRIER_INIT(reduction_init_barrier, NR_TASKLETS);
+
 
 void pipeline_stage_0_map(const INPUT_TYPE* restrict input, STAGE_0_TYPE* restrict output);
 int pipeline_stage_1_filter(const STAGE_0_TYPE* restrict input);
 void pipeline_stage_2_map(const STAGE_1_TYPE* restrict input, STAGE_2_TYPE* restrict output);
-void pipeline_reduce(const REDUCTION_TYPE* restrict input0,
-                     const REDUCTION_TYPE* restrict input1,
-                     REDUCTION_TYPE* restrict output);
+void pipeline_reduce(REDUCTION_TYPE* restrict accumulator, const STAGE_2_TYPE* restrict input);
+void pipeline_reduce_combine(REDUCTION_TYPE* restrict target, const REDUCTION_TYPE* restrict input);
 
 // PROCESSING PIPELINE
-void pipeline(uint32_t* data_in, uint32_t index) {
+void pipeline(uint32_t* data_in, uint32_t reduction_idx) {
+
     STAGE_0_TYPE tmp0[STAGE_0_ARR_SIZE];      // stage 0 temporary
     STAGE_2_TYPE tmp1[STAGE_2_ARR_SIZE];      // stage 2 temporary
-    REDUCTION_TYPE tmp2[REDUCTION_ARR_SIZE];  // reduction temporary
-
-    input_type tmp;
 
     // STAGE 0: MAP
     { pipeline_stage_0_map(data_in, tmp0); }
@@ -84,15 +104,20 @@ void pipeline(uint32_t* data_in, uint32_t index) {
     // STAGE 2: MAP
     { pipeline_stage_2_map(tmp0, tmp1); }
 
-    // printf("%u %u\n", me(), *data_in);
-
     // LOCAL REDUCTION
-    pipeline_reduce(tl_reduction_val[index], tmp1, tmp2);
-    memcpy(tl_reduction_val[index], tmp2, sizeof(tmp2));
+    #ifdef SYNCHRONIZE_REDUCTION
+    mutex_lock(&reduction_mutexes[reduction_idx]);
+    #endif
+
+    pipeline_reduce(reduction_vars[reduction_idx], tmp1);
+    #ifdef SYNCHRONIZE_REDUCTION
+    mutex_unlock(&reduction_mutexes[reduction_idx]);
+    #endif
+
 }
 
 // FINAL REDUCTION
-void reduce(uint32_t index) {
+void reduce_(uint32_t index) {
     for (size_t i = 2; i <= NR_TASKLETS; i *= 2) {
         if (index % i == 0) {
             size_t partner = index + i / 2;
@@ -101,8 +126,7 @@ void reduce(uint32_t index) {
             {
                 // PRE-REDUCE
                 REDUCTION_TYPE tmp[REDUCTION_ARR_SIZE];
-                pipeline_reduce(tl_reduction_val[index], tl_reduction_val[partner], tmp);
-                memcpy(tl_reduction_val[index], tmp, sizeof(tmp));
+                pipeline_reduce_combine(reduction_vars[index], reduction_vars[partner]);
             }
         } else {
             handshake_notify();
@@ -110,7 +134,14 @@ void reduce(uint32_t index) {
         }
     }
     if (index == 0) {
-        memcpy(reduction_output, tl_reduction_val[0], sizeof(tl_reduction_val[0]));
+        memcpy(reduction_output, reduction_vars[0], sizeof(reduction_vars[0]));
+    }
+}
+
+void reduce() {
+    memcpy(reduction_output, reduction_vars[0], sizeof(reduction_vars[0]));
+    for (size_t i = 1; i < REDUCTION_VAR_COUNT; ++i) {
+        pipeline_reduce_combine(reduction_output, reduction_vars[i]);
     }
 }
 
@@ -130,8 +161,13 @@ int main() {
         data_offset += remaining_elems;
     }
 
+    size_t reduction_idx = index % REDUCTION_VAR_COUNT;
+
     // init local reduction variable
-    memcpy(tl_reduction_val[index], zero_vec, sizeof(zero_vec));
+    if (index == reduction_idx) {
+        memcpy(reduction_vars[reduction_idx], zero_vec, sizeof(zero_vec));
+    }
+    barrier_wait(&reduction_init_barrier);
 
     seqreader_buffer_t local_cache = seqread_alloc();
     seqreader_t sr;
@@ -140,12 +176,18 @@ int main() {
         seqread_init(local_cache, &input_data_buffer[data_offset * INPUT_ELEM_SIZE], &sr);
 
     for (size_t i = 0; i < input_elem_count; ++i) {
-        pipeline(current_read, index);
+        pipeline(current_read, reduction_idx);
         current_read = seqread_get(current_read, INPUT_ELEM_SIZE, &sr);
     }
 
     // perform final reduction
-    reduce(index);
+    // reduce(index);
+
+    // only main tasklet performs final reduction
+    barrier_wait(&final_reduction_barrier);
+    if (index == 0) {
+        reduce();
+    }
 
     if (index == 0) {
         printf("successfully executed pipeline\n");
@@ -165,11 +207,8 @@ void pipeline_stage_0_map(const INPUT_TYPE* restrict input, STAGE_0_TYPE* restri
     }
 }
 
-
 #undef IN_SIZE
-#undef OUT_SIZE
-#define IN_SIZE INPUT_ARR_SIZE
-#define OUT_SIZE STAGE_0_ARR_SIZE
+#define IN_SIZE STAGE_0_ARR_SIZE
 
 int pipeline_stage_1_filter(const STAGE_0_TYPE* restrict input) {
     // FILTER PROGRAM
@@ -179,8 +218,8 @@ int pipeline_stage_1_filter(const STAGE_0_TYPE* restrict input) {
 
 #undef IN_SIZE
 #undef OUT_SIZE
-#define IN_SIZE INPUT_ARR_SIZE
-#define OUT_SIZE STAGE_0_ARR_SIZE
+#define IN_SIZE STAGE_1_ARR_SIZE
+#define OUT_SIZE STAGE_2_ARR_SIZE
 
 void pipeline_stage_2_map(const STAGE_1_TYPE* restrict input, STAGE_2_TYPE* restrict output) {
     // MAP PROGRAM
@@ -196,9 +235,11 @@ void pipeline_stage_2_map(const STAGE_1_TYPE* restrict input, STAGE_2_TYPE* rest
 #define OUT_SIZE STAGE_0_ARR_SIZE
 #define ACCUM_SIZE STAGE_0_ARR_SIZE
 
-void pipeline_reduce(const REDUCTION_TYPE* restrict input0,
-                     const REDUCTION_TYPE* restrict input1,
-                     REDUCTION_TYPE* restrict output) {
-    // REDUCE PROGRAM
-    *output = *input0 + *input1;
+void pipeline_reduce(REDUCTION_TYPE* restrict accumulator, const STAGE_2_TYPE* restrict input) {
+    *accumulator += *input;
+}
+
+
+void pipeline_reduce_combine(REDUCTION_TYPE* restrict target, const REDUCTION_TYPE* restrict input) {
+    *target += *input;
 }

@@ -1,3 +1,5 @@
+#include "setup.h"
+
 #include <defs.h>
 #include <handshake.h>
 #include <mram.h>
@@ -8,53 +10,33 @@
 #include <stdio.h>
 #include <string.h>
 
-// assumptions:
-// - LOCAL_BUF_SIZE is always a multiple of INPUT_ELEM_SIZE
+
+// configuration parameters begin
 
 #define INPUT_BUF_SIZE (1 << 16)
-#define LOCAL_BUF_SIZE (1 << 8)
-
 #define REDUCTION_VAR_COUNT 16
+/*
+#define NR_TASKLETS 16
+*/
 
+typedef uint32_t input_t[2];
 
-typedef uint32_t _input_t;
-typedef uint32_t _stage_0_t;
-typedef _stage_0_t _stage_1_t;
-typedef uint32_t _stage_2_t;
-typedef uint32_t _reduction_t;
+typedef uint32_t stage0_out_t[1];
+typedef stage0_out_t stage1_out_t;
+typedef uint32_t stage2_out_t[1];
+typedef uint32_t reduction_out_t[1];
 
+typedef input_t stage0_in_t;
+typedef stage0_out_t stage1_in_t;
+typedef stage1_out_t stage2_in_t;
+typedef stage2_out_t reduction_in_t;
 
-#define INPUT_TYPE uint32_t
-#define STAGE_0_TYPE uint32_t
-#define STAGE_1_TYPE STAGE_0_TYPE
-#define STAGE_2_TYPE uint32_t
-#define REDUCTION_TYPE uint32_t
-
-#define INPUT_ARR_SIZE 2
-#define STAGE_0_ARR_SIZE 1
-#define STAGE_1_ARR_SIZE STAGE_0_ARR_SIZE
-#define STAGE_2_ARR_SIZE 1
-#define REDUCTION_ARR_SIZE 1
-
-#define INPUT_ELEM_SIZE (sizeof(INPUT_TYPE) * INPUT_ARR_SIZE)
-#define REDUCTION_ELEM_SIZE (sizeof(REDUCTION_TYPE) * REDUCTION_ARR_SIZE)
+// config params end
 
 #if REDUCTION_VAR_COUNT < NR_TASKLETS
 #define SYNCHRONIZE_REDUCTION
 #elif REDUCTION_VAR_COUNT > NR_TASKLETS
 #error Cannot have more reduction variables than tasklets
-#endif
-
-#if INPUT_BUF_SIZE % NR_TASKLETS != 0
-#error "Buffer not evenly divided by number of tasklets"
-#endif
-
-#if INPUT_BUF_SIZE % LOCAL_BUF_SIZE != 0
-#error "Buffer not evenly divided by size of local buffer"
-#endif
-
-#if (NR_TASKLETS & (NR_TASKLETS - 1)) != 0
-#error "Number of tasklets must be a power of two"
 #endif
 
 // GLOBAL VARIABLES
@@ -64,84 +46,95 @@ __mram_noinit uint8_t input_data_buffer[INPUT_BUF_SIZE];
 __host uint32_t total_input_elems;
 
 // streaming data output
-__host REDUCTION_TYPE reduction_output[REDUCTION_ARR_SIZE];
+__host reduction_out_t reduction_output;
 
 // global value input
-__host STAGE_0_TYPE comparison[STAGE_0_ARR_SIZE];
-__host REDUCTION_TYPE zero_vec[REDUCTION_ARR_SIZE];
+__host stage1_in_t comparison;
+__host reduction_out_t zero_vec;
 
 
 // values needed for synchronizing reduction
-REDUCTION_TYPE reduction_vars[REDUCTION_VAR_COUNT][REDUCTION_ARR_SIZE];
+reduction_out_t reduction_vars[REDUCTION_VAR_COUNT];
+
 uint8_t __attribute__((section(".atomic"))) reduction_mutexes[REDUCTION_VAR_COUNT];
 BARRIER_INIT(final_reduction_barrier, NR_TASKLETS);
 BARRIER_INIT(reduction_init_barrier, NR_TASKLETS);
 
 
-void pipeline_stage_0_map(const INPUT_TYPE* restrict input, STAGE_0_TYPE* restrict output);
-int pipeline_stage_1_filter(const STAGE_0_TYPE* restrict input);
-void pipeline_stage_2_map(const STAGE_1_TYPE* restrict input, STAGE_2_TYPE* restrict output);
-void pipeline_reduce(REDUCTION_TYPE* restrict accumulator, const STAGE_2_TYPE* restrict input);
-void pipeline_reduce_combine(REDUCTION_TYPE* restrict target, const REDUCTION_TYPE* restrict input);
+// void pipeline_stage_0_map(const INPUT_TYPE* restrict input, STAGE_0_TYPE* restrict output);
+// int pipeline_stage_1_filter(const STAGE_0_TYPE* restrict input);
+// void pipeline_stage_2_map(const STAGE_1_TYPE* restrict input, STAGE_2_TYPE* restrict output);
+// void pipeline_reduce(REDUCTION_TYPE* restrict accumulator, const STAGE_2_TYPE* restrict input);
+// void pipeline_reduce_combine(REDUCTION_TYPE* restrict target, const REDUCTION_TYPE* restrict input);
+
+void pipeline_stage_0_map(const stage0_in_t* restrict in_ptr, stage0_out_t* restrict out_ptr);
+
+int pipeline_stage_1_filter(const stage1_in_t* restrict in_ptr);
+
+void pipeline_stage_2_map(const stage2_in_t* restrict in_ptr, stage2_out_t* restrict out_ptr);
+
+void pipeline_reduce(reduction_out_t* restrict out_ptr, const reduction_in_t* restrict in_ptr);
+
+void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr);
 
 // PROCESSING PIPELINE
-void pipeline(uint32_t* data_in, uint32_t reduction_idx) {
-
-    STAGE_0_TYPE tmp0[STAGE_0_ARR_SIZE];      // stage 0 temporary
-    STAGE_2_TYPE tmp1[STAGE_2_ARR_SIZE];      // stage 2 temporary
+void pipeline(stage0_in_t* data_in, uint32_t reduction_idx) {
+    stage0_out_t tmp0;
+    stage2_out_t tmp1;
 
     // STAGE 0: MAP
-    { pipeline_stage_0_map(data_in, tmp0); }
+    { pipeline_stage_0_map(data_in, &tmp0); }
 
     // STAGE 1: FILTER
     {
-        int output = pipeline_stage_1_filter(tmp0);
+        int output = pipeline_stage_1_filter(&tmp0);
         if (!output) {
             return;
         }
     }
 
     // STAGE 2: MAP
-    { pipeline_stage_2_map(tmp0, tmp1); }
+    { pipeline_stage_2_map(&tmp0, &tmp1); }
 
     // LOCAL REDUCTION
     #ifdef SYNCHRONIZE_REDUCTION
     mutex_lock(&reduction_mutexes[reduction_idx]);
     #endif
 
-    pipeline_reduce(reduction_vars[reduction_idx], tmp1);
+    pipeline_reduce(&reduction_vars[reduction_idx], &tmp1);
     #ifdef SYNCHRONIZE_REDUCTION
     mutex_unlock(&reduction_mutexes[reduction_idx]);
     #endif
 
+
 }
 
 // FINAL REDUCTION
-void reduce_(uint32_t index) {
-    for (size_t i = 2; i <= NR_TASKLETS; i *= 2) {
-        if (index % i == 0) {
-            size_t partner = index + i / 2;
-            handshake_wait_for(partner);
+// void reduce_(uint32_t index) {
+//     for (size_t i = 2; i <= NR_TASKLETS; i *= 2) {
+//         if (index % i == 0) {
+//             size_t partner = index + i / 2;
+//             handshake_wait_for(partner);
 
-            {
-                // PRE-REDUCE
-                REDUCTION_TYPE tmp[REDUCTION_ARR_SIZE];
-                pipeline_reduce_combine(reduction_vars[index], reduction_vars[partner]);
-            }
-        } else {
-            handshake_notify();
-            break;
-        }
-    }
-    if (index == 0) {
-        memcpy(reduction_output, reduction_vars[0], sizeof(reduction_vars[0]));
-    }
-}
+//             {
+//                 // PRE-REDUCE
+//                 REDUCTION_TYPE tmp[REDUCTION_ARR_SIZE];
+//                 pipeline_reduce_combine(reduction_vars[index], reduction_vars[partner]);
+//             }
+//         } else {
+//             handshake_notify();
+//             break;
+//         }
+//     }
+//     if (index == 0) {
+//         memcpy(reduction_output, reduction_vars[0], sizeof(reduction_vars[0]));
+//     }
+// }
 
 void reduce() {
     memcpy(reduction_output, reduction_vars[0], sizeof(reduction_vars[0]));
     for (size_t i = 1; i < REDUCTION_VAR_COUNT; ++i) {
-        pipeline_reduce_combine(reduction_output, reduction_vars[i]);
+        pipeline_reduce_combine(&reduction_output, &reduction_vars[i]);
     }
 }
 
@@ -172,16 +165,13 @@ int main() {
     seqreader_buffer_t local_cache = seqread_alloc();
     seqreader_t sr;
 
-    INPUT_TYPE* current_read =
-        seqread_init(local_cache, &input_data_buffer[data_offset * INPUT_ELEM_SIZE], &sr);
+    input_t* current_read =
+        seqread_init(local_cache, &input_data_buffer[data_offset * sizeof(input_t)], &sr);
 
     for (size_t i = 0; i < input_elem_count; ++i) {
         pipeline(current_read, reduction_idx);
-        current_read = seqread_get(current_read, INPUT_ELEM_SIZE, &sr);
+        current_read = seqread_get(current_read, sizeof(input_t), &sr);
     }
-
-    // perform final reduction
-    // reduce(index);
 
     // only main tasklet performs final reduction
     barrier_wait(&final_reduction_barrier);
@@ -190,56 +180,63 @@ int main() {
     }
 
     if (index == 0) {
-        printf("successfully executed pipeline\n");
+        printf("ok\n");
     }
     return 0;
 }
 
-#undef IN_SIZE
-#undef OUT_SIZE
-#define IN_SIZE INPUT_ARR_SIZE
-#define OUT_SIZE STAGE_0_ARR_SIZE
 
-void pipeline_stage_0_map(const INPUT_TYPE* restrict input, STAGE_0_TYPE* restrict output) {
-    // MAP PROGRAM
-    for (size_t i = 0; i < STAGE_0_ARR_SIZE; ++i) {
-        output[i] = input[i] + input[STAGE_0_ARR_SIZE];
+void pipeline_stage_0_map(const stage0_in_t* restrict in_ptr, stage0_out_t* restrict out_ptr) {
+    stage0_in_t in;
+    stage0_out_t out;
+    memcpy(&in, in_ptr, sizeof(in));
+    {
+        // MAP PROGRAM
+        out[0] = in[0] + in[1];
+    }
+    memcpy(out_ptr, &out, sizeof(out));
+}
+
+int pipeline_stage_1_filter(const stage1_in_t* restrict in_ptr) {
+    stage1_in_t in;
+    memcpy(&in, in_ptr, sizeof(in));
+    {
+        // FILTER PROGRAM
+        return 1;
+        // return memcmp(input, comparison, STAGE_0_OUT_SIZE) != 0;
     }
 }
 
-#undef IN_SIZE
-#define IN_SIZE STAGE_0_ARR_SIZE
-
-int pipeline_stage_1_filter(const STAGE_0_TYPE* restrict input) {
-    // FILTER PROGRAM
-    return 1;
-    // return memcmp(input, comparison, STAGE_0_OUT_SIZE) != 0;
-}
-
-#undef IN_SIZE
-#undef OUT_SIZE
-#define IN_SIZE STAGE_1_ARR_SIZE
-#define OUT_SIZE STAGE_2_ARR_SIZE
-
-void pipeline_stage_2_map(const STAGE_1_TYPE* restrict input, STAGE_2_TYPE* restrict output) {
-    // MAP PROGRAM
-    for (size_t i = 0; i < STAGE_2_ARR_SIZE; ++i) {
-        output[i] = input[i];
+void pipeline_stage_2_map(const stage2_in_t* restrict in_ptr, stage2_out_t* restrict out_ptr) {
+    stage2_in_t in;
+    stage2_out_t out;
+    memcpy(&in, in_ptr, sizeof(in));
+    {
+        // MAP PROGRAM
+        out[0] = in[0];
     }
+    memcpy(out_ptr, &out, sizeof(out));
 }
 
-#undef IN_SIZE
-#undef OUT_SIZE
-#undef ACCUM_SIZE
-#define IN_SIZE INPUT_ARR_SIZE
-#define OUT_SIZE STAGE_0_ARR_SIZE
-#define ACCUM_SIZE STAGE_0_ARR_SIZE
-
-void pipeline_reduce(REDUCTION_TYPE* restrict accumulator, const STAGE_2_TYPE* restrict input) {
-    *accumulator += *input;
+void pipeline_reduce(reduction_out_t* restrict out_ptr, const reduction_in_t* restrict in_ptr) {
+    reduction_in_t in;
+    reduction_out_t out;
+    memcpy(&in, in_ptr, sizeof(in));
+    memcpy(&out, out_ptr, sizeof(out));
+    {
+        out[0] += in[0];
+    }
+    memcpy(out_ptr, &out, sizeof(out));
 }
 
 
-void pipeline_reduce_combine(REDUCTION_TYPE* restrict target, const REDUCTION_TYPE* restrict input) {
-    *target += *input;
+void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
+    reduction_out_t in;
+    reduction_out_t out;
+    memcpy(&in, in_ptr, sizeof(in));
+    memcpy(&out, out_ptr, sizeof(out));
+    {
+        out[0] += in[0];
+    }
+    memcpy(out_ptr, &out, sizeof(out));
 }

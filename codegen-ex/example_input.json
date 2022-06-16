@@ -1,10 +1,19 @@
-# An example pipeline to be compiled for execution using UPMEM
+{
+    "pipeline": {
 
+    },
+    "stages": [
+        {
+            "kind": "map",
+            "out_type": "uint8_t[8]",
+            "program": "
+            
+            "
+        }
+    ]
+}
 [pipeline]
 name = "string_process"
-typedefs = """
-typedef 
-"""
 # declares the input data stream as colelction of 16-byte chunks of unsigned characters
 input = "uint8_t[16]"
 # declares variables which are global for all executions
@@ -39,13 +48,15 @@ return memcmp(input, comparison) != 0;
 kind = "reduce"
 identity = "zero_vec"
 output = "uint8_t[4]"
-program = """
-for (size_t i = 0; i < 4; ++i) {
-    output[i] = input0[i] + input1[i];
-}
-"""
-combine = """
-for (size_t i = 0; i < 4; ++i) {
-    output[i] = input0[i] + input1[i];
-}
-"""
+program = """ asdfa """
+
+# program = """
+# for (size_t i = 0; i < 4; ++i) {
+#     output[i] = input0[i] + input1[i];
+# }
+# """
+# combine = """
+# for (size_t i = 0; i < 4; ++i) {
+#     output[i] = input0[i] + input1[i];
+# }
+# """

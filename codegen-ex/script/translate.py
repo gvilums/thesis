@@ -1,23 +1,234 @@
 map_template = """
-void {func_name}(const {in_type}* restrict in_ptr, {out_type}* restrict out_ptr) {
+void {func_name}(const {in_type}* restrict in_ptr, {out_type}* restrict out_ptr) {{
     stage0_in_t in;
     stage0_out_t out;
     memcpy(&in, in_ptr, sizeof(in));
-    {
+    {{
         // MAP PROGRAM
         {program}
-    }
+    }}
     memcpy(out_ptr, &out, sizeof(out));
-}
+}}
 """
 
 filter_template = """
-int {func_name}(const {in_type}* restrict in_ptr) {
+int {func_name}(const {in_type}* restrict in_ptr) {{
     stage1_in_t in;
     memcpy(&in, in_ptr, sizeof(in));
-    {
+    {{
         // FILTER PROGRAM
         {program}
+    }}
+}}
+"""
+
+pipeline_template = """
+void pipeline(input_t* data_in, uint32_t reduction_idx) {{
+    {temporaries}
+
+    {compute_stages}
+
+// LOCAL REDUCTION
+#ifdef SYNCHRONIZE_REDUCTION
+    mutex_lock(&reduction_mutexes[reduction_idx]);
+#endif
+
+    pipeline_reduce(&reduction_vars[reduction_idx], &{compute_output});
+
+#ifdef SYNCHRONIZE_REDUCTION
+    mutex_unlock(&reduction_mutexes[reduction_idx]);
+#endif
+}}
+"""
+
+reduce_template = """
+void pipeline_reduce(reduction_out_t* restrict out_ptr, const reduction_in_t* restrict in_ptr) {{
+    reduction_in_t in;
+    reduction_out_t out;
+    memcpy(&in, in_ptr, sizeof(in));
+    memcpy(&out, out_ptr, sizeof(out));
+    {{
+        {program}
+    }}
+    memcpy(out_ptr, &out, sizeof(out));
+}}
+"""
+
+reduce_combine_template = """
+void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {{
+    reduction_out_t in;
+    reduction_out_t out;
+    memcpy(&in, in_ptr, sizeof(in));
+    memcpy(&out, out_ptr, sizeof(out));
+    {{
+        {program}
+    }}
+    memcpy(out_ptr, &out, sizeof(out));
+}}
+"""
+
+setup_inputs_template = """
+void setup_inputs() {{
+    // read aligned MRAM chunk containing global data
+    __dma_aligned uint8_t buf[DATA_OFFSET + 8];
+    mram_read(input_data_buffer, buf, ((DATA_OFFSET - 1) | 7) + 1);
+
+    memcpy(&total_input_elems, &buf[ELEM_COUNT_OFFSET], sizeof(total_input_elems));
+
+    // initialize global variables
+    {globals_init}
+}}
+"""
+
+main_template = """
+#include "common.h"
+
+#include <barrier.h>
+#include <defs.h>
+#include <handshake.h>
+#include <mram.h>
+#include <mutex.h>
+#include <seqread.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+#if REDUCTION_VAR_COUNT < NR_TASKLETS
+#define SYNCHRONIZE_REDUCTION
+#elif REDUCTION_VAR_COUNT > NR_TASKLETS
+#error Cannot have more reduction variables than tasklets
+#endif
+
+// host input globals
+uint32_t total_input_elems;
+
+{host_globals}
+
+// constant globals
+
+{const_globals}
+
+// streaming data input
+__mram_noinit uint8_t input_data_buffer[INPUT_BUF_SIZE];
+
+// data output
+__host reduction_out_t reduction_output;
+
+// reduction values and helpers
+reduction_out_t reduction_vars[REDUCTION_VAR_COUNT];
+__atomic_bit uint8_t reduction_mutexes[REDUCTION_VAR_COUNT];
+
+// various barriers
+BARRIER_INIT(setup_barrier, NR_TASKLETS);
+BARRIER_INIT(reduction_init_barrier, NR_TASKLETS);
+BARRIER_INIT(final_reduction_barrier, NR_TASKLETS);
+
+
+void pipeline(input_t* data_in, uint32_t reduction_idx);
+void setup_inputs();
+void reduce();
+
+int main() {
+    uint32_t index = me();
+    if (index == 0) {
+        setup_inputs();
+    }
+    barrier_wait(&setup_barrier);
+
+    size_t input_elem_count = total_input_elems / NR_TASKLETS;
+    size_t remaining_elems = total_input_elems % NR_TASKLETS;
+
+    // distribute N remaining elements onto first N tasklets
+    if (index < remaining_elems) {
+        input_elem_count += 1;
+    }
+
+    size_t local_offset = input_elem_count * index;
+    if (index >= remaining_elems) {
+        local_offset += remaining_elems;
+    }
+
+    size_t reduction_idx = index % REDUCTION_VAR_COUNT;
+
+    // init local reduction variable
+    if (index == reduction_idx) {
+        memcpy(&reduction_vars[reduction_idx], &zero_vec, sizeof(zero_vec));
+    }
+    barrier_wait(&reduction_init_barrier);
+
+    seqreader_buffer_t local_cache = seqread_alloc();
+    seqreader_t sr;
+
+    input_t* current_read = seqread_init(
+        local_cache, &input_data_buffer[DATA_OFFSET + local_offset * sizeof(input_t)], &sr);
+
+    for (size_t i = 0; i < input_elem_count; ++i) {
+        pipeline(current_read, reduction_idx);
+        current_read = seqread_get(current_read, sizeof(input_t), &sr);
+    }
+
+    // only main tasklet performs final reduction
+    barrier_wait(&final_reduction_barrier);
+    if (index == 0) {
+        reduce();
+    }
+
+    if (index == 0) {
+        printf("ok\\n");
+    }
+    return 0;
+}
+
+
+void reduce() {
+    memcpy(&reduction_output, &reduction_vars[0], sizeof(reduction_vars[0]));
+    for (size_t i = 1; i < REDUCTION_VAR_COUNT; ++i) {
+        pipeline_reduce_combine(&reduction_output, &reduction_vars[i]);
     }
 }
+
+// GENERATED CODE
 """
+
+def create_map(index, program):
+    name = f'stage_{index}'
+    in_type = name + "_in_t"
+    out_type = name + "_out_t"
+    return map_template.format(func_name=name, in_type=in_type, out_type=out_type, program=program)
+
+def create_filter(index, program):
+    name = f'stage_{index}'
+    in_type = name + "_in_t"
+    return filter_template.format(func_name=name, in_type=in_type, program=program)
+
+def create_reduce(program):
+    return reduce_template.format(program=program)
+
+def create_reduce_combine(program):
+    return reduce_combine_template.format(program=program)
+
+
+def create_typedef(name, type):
+    base, bracket, rest = type.partition('[')
+    return f"typedef {base} {name}{bracket + rest};\n"
+
+import tomllib
+
+with open('example_input.toml', 'rb') as f:
+    data = tomllib.load(f)
+    common_header = """
+    #pragma once
+    """
+    device_code = main_template.format()
+    pipeline_temporaries = ""
+    pipeline_compute_stages = ""
+    for idx, stage in data['stages']:
+        kind = stage['kind']
+        if kind == 'map':
+            device_code += create_map(idx, stage['program'])
+        elif kind == 'filter':
+            pass
+        elif kind == 'reduce':
+            device_code += create_reduce(stage['program'])
+            device_code += create_reduce_combine(stage['combine'])
+            pass

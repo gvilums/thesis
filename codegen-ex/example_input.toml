@@ -8,10 +8,11 @@ typedef
 # declares the input data stream as colelction of 16-byte chunks of unsigned characters
 input = "uint8_t[16]"
 # declares variables which are global for all executions
-globals = [
-    { name = "zero_vec", type = "uint8_t[8]" }
-]
+# globals = [
+#     { name = "zero_vec", type = "uint8_t[8]" }
+# ]
 constants = [
+    { name = "zero_vec", type = "uint8_t[8]", init = "{}" },
     { name = "comparison", type = "uint8_t[8]" , init = "{}"},
 ]
 sysincludes = ["string.h"]
@@ -22,9 +23,8 @@ sysincludes = ["string.h"]
 kind = "map"
 output = "uint8_t[8]" 
 program = """
-memcpy(output, input, 8);
 for (size_t i = 0; i < 8; ++i) {
-    output[i] *= 2;
+    out[i] = 2 * in[i];
 }
 """ 
 
@@ -32,7 +32,7 @@ for (size_t i = 0; i < 8; ++i) {
 # filters data elements by a predicate
 kind = "filter"
 program = """
-return memcmp(input, comparison) != 0;
+return memcmp(in, comparison, sizeof(in)) != 0;
 """ 
 
 [[stages]]
@@ -41,11 +41,11 @@ identity = "zero_vec"
 output = "uint8_t[4]"
 program = """
 for (size_t i = 0; i < 4; ++i) {
-    output[i] = input0[i] + input1[i];
+    out[i] += in[i];
 }
 """
 combine = """
 for (size_t i = 0; i < 4; ++i) {
-    output[i] = input0[i] + input1[i];
+    out[i] += in[i];
 }
 """

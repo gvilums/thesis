@@ -46,6 +46,7 @@ BARRIER_INIT(final_reduction_barrier, NR_TASKLETS);
 
 void pipeline(input_t* data_in, uint32_t reduction_idx);
 void setup_inputs();
+void setup_reduction(uint32_t reduction_idx);
 void reduce();
 
 int main() {
@@ -72,7 +73,7 @@ int main() {
 
     // init local reduction variable
     if (index == reduction_idx) {
-        memcpy(&reduction_vars[reduction_idx], &zero_vec, sizeof(zero_vec));
+        setup_reduction(reduction_idx);
     }
     barrier_wait(&reduction_init_barrier);
 
@@ -162,6 +163,10 @@ void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_
 
     }
     memcpy(out_ptr, &out, sizeof(out));
+}
+
+void setup_reduction(uint32_t reduction_idx) {
+    memcpy(&reduction_vars[reduction_idx], &zero_vec, sizeof(zero_vec));
 }
 
 void pipeline(input_t* data_in, uint32_t reduction_idx) {

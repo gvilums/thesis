@@ -1,11 +1,21 @@
 [
 {
-  "directory": "/home/gvilums/uni/upmem",
-  "arguments": ["/usr/bin/ccache", "/usr/bin/gcc", "-c", "-m64", "-fvisibility=hidden", "-fvisibility-inlines-hidden", "-O3", "-I/usr/local/upmem/include/dpu", "-DNDEBUG", "-o", "build/.objs/host/linux/x86_64/release/src/host/host_main.cpp.o", "src/host/host_main.cpp"],
+  "directory": "/home/gvilums/uni/thesis/codegen-ex",
+  "arguments": ["/usr/bin/ccache", "/usr/bin/gcc", "-c", "-m64", "-g", "-O0", "-I/usr/local/upmem/include/dpu", "-o", "build/.objs/host/linux/x86_64/debug/src/host/host.c.o", "src/host/host.c"],
+  "file": "src/host/host.c"
+},
+{
+  "directory": "/home/gvilums/uni/thesis/codegen-ex",
+  "arguments": ["/usr/bin/ccache", "/usr/bin/gcc", "-c", "-m64", "-g", "-O0", "-I/usr/local/upmem/include/dpu", "-o", "build/.objs/host/linux/x86_64/debug/src/host/host_main.cpp.o", "src/host/host_main.cpp"],
   "file": "src/host/host_main.cpp"
 },
 {
-  "directory": "/home/gvilums/uni/upmem",
-  "arguments": ["/usr/bin/ccache", "/usr/local/upmem-21.3.0/bin/dpu-upmem-dpurte-clang", "-c", "-Qunused-arguments", "-fvisibility=hidden", "-DNR_TASKLETS=16", "-o", "build/.objs/device/linux/x86_64/release/src/device/device_main.c.o", "src/device/device_main.c"],
+  "directory": "/home/gvilums/uni/thesis/codegen-ex",
+  "arguments": ["/usr/bin/ccache", "/usr/local/upmem-21.3.0/bin/dpu-upmem-dpurte-clang", "-c", "-DNR_TASKLETS=16", "-Qunused-arguments", "-g", "-o", "build/.objs/device/linux/x86_64/debug/src/device/device_main.c.o", "src/device/device_main.c"],
   "file": "src/device/device_main.c"
+},
+{
+  "directory": "/home/gvilums/uni/thesis/codegen-ex",
+  "arguments": ["/usr/bin/ccache", "/usr/local/upmem-21.3.0/bin/dpu-upmem-dpurte-clang", "-c", "-DNR_TASKLETS=16", "-Qunused-arguments", "-g", "-o", "build/.objs/device/linux/x86_64/debug/src/device/device_noreduce.c.o", "src/device/device_noreduce.c"],
+  "file": "src/device/device_noreduce.c"
 }]

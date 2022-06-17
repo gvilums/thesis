@@ -128,6 +128,7 @@ BARRIER_INIT(final_reduction_barrier, NR_TASKLETS);
 
 void pipeline(input_t* data_in, uint32_t reduction_idx);
 void setup_inputs();
+void setup_reduction(uint32_t reduction_idx);
 void reduce();
 
 int main() {{
@@ -154,7 +155,7 @@ int main() {{
 
     // init local reduction variable
     if (index == reduction_idx) {{
-        memcpy(&reduction_vars[reduction_idx], &zero_vec, sizeof(zero_vec));
+        setup_reduction(reduction_idx);
     }}
     barrier_wait(&reduction_init_barrier);
 
@@ -182,6 +183,12 @@ int main() {{
 }}
 
 // GENERATED CODE
+"""
+
+setup_reduction_template = """
+void setup_reduction(uint32_t reduction_idx) {{
+    memcpy(&reduction_vars[reduction_idx], &{identity}, sizeof({identity}));
+}}
 """
 
 def create_map(index: int, program: str) -> str:
@@ -320,6 +327,7 @@ with open('example_input.toml', 'rb') as f:
         elif kind == 'reduce':
             device_code += create_reduce(stage['program'])
             device_code += create_reduce_combine(stage['combine'])
+            device_code += setup_reduction_template.format(identity=stage['identity'])
             # generate additional typedef for reduce stage
             typedefs += create_typedef("reduction_in_t", f"stage_{idx}_in_t")
             typedefs += create_typedef("reduction_out_t", f"stage_{idx}_out_t")

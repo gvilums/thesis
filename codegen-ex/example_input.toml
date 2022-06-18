@@ -2,18 +2,14 @@
 
 [pipeline]
 name = "string_process"
-typedefs = """
-typedef 
-"""
-# declares the input data stream as colelction of 16-byte chunks of unsigned characters
-input = "uint8_t[16]"
+input = "uint32_t[2]"
 # declares variables which are global for all executions
 # globals = [
 #     { name = "zero_vec", type = "uint8_t[8]" }
 # ]
 constants = [
-    { name = "zero_vec", type = "uint8_t[8]", init = "{}" },
-    { name = "comparison", type = "uint8_t[8]" , init = "{}"},
+    { name = "zero", type = "uint32_t", init = "0" },
+    # { name = "comparison", type = "uint8_t[8]" , init = "{}"},
 ]
 sysincludes = ["string.h"]
 
@@ -21,31 +17,25 @@ sysincludes = ["string.h"]
 [[stages]]
 # this performs a map operation on the data
 kind = "map"
-output = "uint8_t[8]" 
+output = "uint32_t" 
 program = """
-for (size_t i = 0; i < 8; ++i) {
-    out[i] = 2 * in[i];
-}
+out = in[0] + in[1];
 """ 
 
-[[stages]]
-# filters data elements by a predicate
-kind = "filter"
-program = """
-return memcmp(in, comparison, sizeof(in)) != 0;
-""" 
+# [[stages]]
+# # filters data elements by a predicate
+# kind = "filter"
+# program = """
+# return memcmp(in, comparison, sizeof(in)) != 0;
+# """ 
 
 [[stages]]
 kind = "reduce"
-identity = "zero_vec"
-output = "uint8_t[4]"
+identity = "zero"
+output = "uint32_t"
 program = """
-for (size_t i = 0; i < 4; ++i) {
-    out[i] += in[i];
-}
+out += in;
 """
 combine = """
-for (size_t i = 0; i < 4; ++i) {
-    out[i] += in[i];
-}
+out += in;
 """

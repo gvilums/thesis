@@ -1,30 +1,23 @@
-// this include is important to ge all of the typedefs
-#include "../common.h"
+
+#include "common.h"
 
 #include <assert.h>
 #include <dpu.h>
 #include <stdint.h>
 #include <stdio.h>
 
-#ifndef DPU_BINARY
 #define DPU_BINARY "device"
-#endif
 
-// copied straight from DPU (assume same behavior)
+
 void pipeline_reduce_combine(reduction_out_t* restrict out_ptr,
-                             const reduction_out_t* restrict in_ptr) {
-    reduction_out_t in;
-    reduction_out_t out;
-    memcpy(&in, in_ptr, sizeof(in));
-    memcpy(&out, out_ptr, sizeof(out));
-    { out += in; }
-    memcpy(out_ptr, &out, sizeof(out));
-}
+                             const reduction_out_t* restrict in_ptr);
 
 void setup_inputs(struct dpu_set_t set,
                    uint32_t nr_dpus,
                    const input_t* input,
-                   size_t elem_count) {
+                   size_t elem_count
+                   
+                   ) {
     struct dpu_set_t dpu;
     uint32_t dpu_id;
 
@@ -44,19 +37,35 @@ void setup_inputs(struct dpu_set_t set,
 
         DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)&input[local_offset]));
     }
-    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "input_data_buffer", 0, sizeof(input_t) * (base_inputs + 1), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "element_input_buffer", 0, sizeof(input_t) * (base_inputs + 1), DPU_XFER_DEFAULT));
 
-    uint32_t const_data_less[2] = {base_inputs, 0};
-    uint32_t const_data_more[2] = {base_inputs + 1, 0};
+    uint8_t globals_data_less[GLOBALS_SIZE_ALIGNED];
+    memcpy(&globals_data_less[0], &base_inputs, sizeof(elem_count_t));
+
+    
+
+    /*
+    memcpy(&globals_data_less[GLOBAL_0_OFFSET], global_0, sizeof(global_0_t));
+    memcpy(&globals_data_less[GLOBAL_1_OFFSET], global_1, sizeof(global_1_t));
+    ...
+    */
+
+    uint8_t globals_data_more[GLOBALS_SIZE_ALIGNED];
+    memcpy(globals_data_more, globals_data_less, sizeof(globals_data_more));
+    *((uint32_t*)globals_data_more) += 1;
+
+    /*
+        insertion point for initialization of globals
+    */
 
     DPU_FOREACH(set, dpu, dpu_id) {
         if (dpu_id < remaining_elems) {
-            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)const_data_more));
+            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)globals_data_more));
         } else {
-            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)const_data_less));
+            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)globals_data_less));
         }
     }
-    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "global_data_input", 0, GLOBALS_SIZE, DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "globals_input_buffer", 0, GLOBALS_SIZE_ALIGNED, DPU_XFER_DEFAULT));
 }
 
 void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_t* output) {
@@ -75,7 +84,7 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
     memcpy(output, &outputs[0], sizeof(outputs[0]));
 }
 
-int process(const input_t* input, size_t elem_count, reduction_out_t* output) {
+int process(reduction_out_t* output, const input_t* input, size_t elem_count ) {
     struct dpu_set_t set, dpu;
     uint32_t nr_dpus;
 
@@ -83,7 +92,7 @@ int process(const input_t* input, size_t elem_count, reduction_out_t* output) {
     DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
     DPU_ASSERT(dpu_get_nr_dpus(set, &nr_dpus));
 
-    setup_inputs(set, nr_dpus, input, elem_count);
+    setup_inputs(set, nr_dpus, input, elem_count );
 
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
     compute_final_result(set, nr_dpus, output);
@@ -92,14 +101,14 @@ int process(const input_t* input, size_t elem_count, reduction_out_t* output) {
     return 0;
 }
 
-int main() {
-    const size_t elem_count = 1000;
-    input_t* input = malloc(sizeof(input_t) * elem_count);
-    for (int i = 0; i < elem_count; ++i) {
-        input[i][0] = 1;
-        input[i][1] = 2;
+void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
+    reduction_out_t in;
+    reduction_out_t out;
+    memcpy(&in, in_ptr, sizeof(in));
+    memcpy(&out, out_ptr, sizeof(out));
+    {
+        out += in;
+
     }
-    reduction_out_t output;
-    process(input, elem_count, &output);
-    printf("%u\n", output);
+    memcpy(out_ptr, &out, sizeof(out));
 }

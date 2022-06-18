@@ -72,10 +72,10 @@ void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_
 setup_inputs_template = """
 void setup_inputs() {{
     // read aligned MRAM chunk containing global data
-    __dma_aligned uint8_t buf[DATA_OFFSET + 8];
-    mram_read(input_data_buffer, buf, ((DATA_OFFSET - 1) | 7) + 1);
+    __dma_aligned uint8_t buf[GLOBALS_SIZE_ALIGNED];
+    mram_read(globals_input_buffer, buf, GLOBALS_SIZE_ALIGNED);
 
-    memcpy(&total_input_elems, &buf[ELEM_COUNT_OFFSET], sizeof(total_input_elems));
+    memcpy(&total_input_elems, &buf[0], sizeof(total_input_elems));
 
     // initialize global variables
     {globals_init}
@@ -111,7 +111,8 @@ uint32_t total_input_elems;
 {const_globals}
 
 // streaming data input
-__mram_noinit uint8_t input_data_buffer[INPUT_BUF_SIZE];
+__mram_noinit uint8_t element_input_buffer[INPUT_BUF_SIZE];
+__mram_noinit uint8_t globals_input_buffer[GLOBALS_SIZE_ALIGNED];
 
 // data output
 __host reduction_out_t reduction_output;
@@ -163,7 +164,7 @@ int main() {{
     seqreader_t sr;
 
     input_t* current_read = seqread_init(
-        local_cache, &input_data_buffer[DATA_OFFSET + local_offset * sizeof(input_t)], &sr);
+        local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
 
     for (size_t i = 0; i < input_elem_count; ++i) {{
         pipeline(current_read, reduction_idx);
@@ -189,6 +190,118 @@ setup_reduction_template = """
 void setup_reduction(uint32_t reduction_idx) {{
     memcpy(&reduction_vars[reduction_idx], &{identity}, sizeof({identity}));
 }}
+"""
+
+host_main_template = """
+#include "common.h"
+
+#include <assert.h>
+#include <dpu.h>
+#include <stdint.h>
+#include <stdio.h>
+
+#define DPU_BINARY "device"
+
+
+void pipeline_reduce_combine(reduction_out_t* restrict out_ptr,
+                             const reduction_out_t* restrict in_ptr);
+
+void setup_inputs(struct dpu_set_t set,
+                   uint32_t nr_dpus,
+                   const input_t* input,
+                   size_t elem_count
+                   {global_param_decl}
+                   ) {{
+    struct dpu_set_t dpu;
+    uint32_t dpu_id;
+
+    size_t base_inputs = elem_count / nr_dpus;
+    size_t remaining_elems = elem_count % nr_dpus;
+
+    DPU_FOREACH(set, dpu, dpu_id) {{
+        size_t input_elem_count = base_inputs;
+        if (dpu_id < remaining_elems) {{
+            input_elem_count += 1;
+        }}
+
+        size_t local_offset = input_elem_count * dpu_id;
+        if (dpu_id >= remaining_elems) {{
+            local_offset += remaining_elems;
+        }}
+
+        DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)&input[local_offset]));
+    }}
+    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "element_input_buffer", 0, sizeof(input_t) * (base_inputs + 1), DPU_XFER_DEFAULT));
+
+    uint8_t globals_data_less[GLOBALS_SIZE_ALIGNED];
+    memcpy(&globals_data_less[0], &base_inputs, sizeof(elem_count_t));
+
+    {globals_init}
+
+    /*
+    memcpy(&globals_data_less[GLOBAL_0_OFFSET], global_0, sizeof(global_0_t));
+    memcpy(&globals_data_less[GLOBAL_1_OFFSET], global_1, sizeof(global_1_t));
+    ...
+    */
+
+    uint8_t globals_data_more[GLOBALS_SIZE_ALIGNED];
+    memcpy(globals_data_more, globals_data_less, sizeof(globals_data_more));
+    *((uint32_t*)globals_data_more) += 1;
+
+    /*
+        insertion point for initialization of globals
+    */
+
+    DPU_FOREACH(set, dpu, dpu_id) {{
+        if (dpu_id < remaining_elems) {{
+            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)globals_data_more));
+        }} else {{
+            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)globals_data_less));
+        }}
+    }}
+    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "globals_input_buffer", 0, GLOBALS_SIZE_ALIGNED, DPU_XFER_DEFAULT));
+}}
+
+void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_t* output) {{
+    struct dpu_set_t dpu;
+    uint32_t dpu_id;
+    reduction_out_t outputs[nr_dpus];
+    DPU_FOREACH(set, dpu, dpu_id) {{ DPU_ASSERT(dpu_prepare_xfer(dpu, &outputs[dpu_id])); }}
+    DPU_ASSERT(
+        dpu_push_xfer(set, DPU_XFER_FROM_DPU, "reduction_output", 0, sizeof(reduction_out_t), DPU_XFER_DEFAULT));
+
+
+    for (int i = 1; i < nr_dpus; ++i) {{
+        pipeline_reduce_combine(&outputs[0], &outputs[i]);
+    }}
+
+    memcpy(output, &outputs[0], sizeof(outputs[0]));
+}}
+
+int process(reduction_out_t* output, const input_t* input, size_t elem_count {global_param_decl}) {{
+    struct dpu_set_t set, dpu;
+    uint32_t nr_dpus;
+
+    DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, "backend=simulator", &set));
+    DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
+    DPU_ASSERT(dpu_get_nr_dpus(set, &nr_dpus));
+
+    setup_inputs(set, nr_dpus, input, elem_count {global_args});
+
+    DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+    compute_final_result(set, nr_dpus, output);
+
+    DPU_ASSERT(dpu_free(set));
+    return 0;
+}}
+"""
+
+host_header_template = """
+#pragma once
+
+#include "common.h"
+
+int process(reduction_out_t* output, const input_t* input, size_t elem_count {global_param_decl});
 """
 
 def create_map(index: int, program: str) -> str:
@@ -239,13 +352,29 @@ void reduce() {
         pipeline_reduce_combine(&reduction_output, &reduction_vars[i]);
     }
 }
-    """
+"""
 
 def create_define(name: str, value) -> str:
     return f"#define {name} {value}\n"
 
 def create_inputs_setup(globals_init: str) -> str:
     return setup_inputs_template.format(globals_init=globals_init)
+
+def create_host_main(num_globals: int) -> str:
+    global_param_decl = ""
+    global_args = ""
+    globals_init = ""
+    for i in range(num_globals):
+        global_param_decl += f", global_{i}_t global_{i}"
+        global_args += f", global_{i}"
+        globals_init += f"memcpy(&globals_data_less[GLOBAL_{i}_OFFSET], global_{i}, sizeof(global_{i}_t));\n"
+    return host_main_template.format(global_param_decl=global_param_decl, global_args=global_args, globals_init=globals_init)
+
+def create_host_header(num_globals: int) -> str:
+    global_param_decl = ""
+    for i in range(num_globals):
+        global_param_decl += f", global_{i}_t global_{i}"
+    return host_header_template.format(global_param_decl=global_param_decl)
 
 import tomllib
 
@@ -257,7 +386,8 @@ with open('example_input.toml', 'rb') as f:
 
 #include "stdint.h"
 #include "stddef.h"
-    """
+
+"""
 
     common_header += create_define("REDUCTION_VAR_COUNT", 12)
     common_header += create_define("INPUT_BUF_SIZE", "(1 << 16)")
@@ -272,7 +402,7 @@ with open('example_input.toml', 'rb') as f:
 
     globals_declarations = ""
     globals_init = ""
-    offset_defines = "#define ELEM_COUNT_OFFSET 0\n"
+    offset_defines = ""
 
     if 'globals' not in general:
         general['globals'] = []
@@ -282,16 +412,17 @@ with open('example_input.toml', 'rb') as f:
         typedefs += create_typedef(f"global_{idx}_t", global_value['type'])
         globals_declarations += f"global_{idx}_t {name};\n"
         if idx == 0:
-            offset_defines += create_define(f"GLOBAL_{idx}_OFFSET", "(ELEM_COUNT_OFFSET + sizeof(elem_count_t))")
+            offset_defines += create_define(f"GLOBAL_{idx}_OFFSET", "sizeof(elem_count_t)")
         else:
             offset_defines += create_define(f"GLOBAL_{idx}_OFFSET", f"(GLOBAL_{idx - 1}_OFFSET + sizeof(global_{idx - 1}_t))")
         globals_init += f"memcpy(&{name}, &buf[GLOBAL_{idx}_OFFSET], sizeof({name}));\n"
 
     num_globals = len(general['globals'])
     if num_globals == 0:
-        offset_defines += create_define("DATA_OFFSET", "(ELEM_COUNT_OFFSET + sizeof(elem_count_t))")
+        offset_defines += create_define("GLOBALS_SIZE", "sizeof(elem_count_t)")
     else:
-        offset_defines += create_define("DATA_OFFSET", f"(GLOBAL_{num_globals - 1}_OFFSET + sizeof(global_{num_globals - 1}_t))")
+        offset_defines += create_define("GLOBALS_SIZE", f"(GLOBAL_{num_globals - 1}_OFFSET + sizeof(global_{num_globals - 1}_t))")
+    offset_defines += create_define("GLOBALS_SIZE_ALIGNED", "(((GLOBALS_SIZE - 1) | 7) + 1)")
 
 
     constants_declarations = ""
@@ -301,6 +432,9 @@ with open('example_input.toml', 'rb') as f:
 
     device_code = main_template.format(host_globals=globals_declarations, const_globals=constants_declarations)
     device_code += create_inputs_setup(globals_init)
+
+    host_code = create_host_main(num_globals)
+    host_header = create_host_header(num_globals)
 
     pipeline_temporaries = ""
     pipeline_compute_stages = ""
@@ -328,6 +462,8 @@ with open('example_input.toml', 'rb') as f:
             device_code += create_reduce(stage['program'])
             device_code += create_reduce_combine(stage['combine'])
             device_code += setup_reduction_template.format(identity=stage['identity'])
+
+            host_code += create_reduce_combine(stage['combine'])
             # generate additional typedef for reduce stage
             typedefs += create_typedef("reduction_in_t", f"stage_{idx}_in_t")
             typedefs += create_typedef("reduction_out_t", f"stage_{idx}_out_t")
@@ -343,3 +479,9 @@ with open('example_input.toml', 'rb') as f:
 
     with open('output/device.c', 'w') as out:
         out.write(device_code)
+
+    with open('output/host.c', 'w') as out:
+        out.write(host_code)
+
+    with open('output/host.h', 'w') as out:
+        out.write(host_header)

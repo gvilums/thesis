@@ -24,12 +24,12 @@ uint32_t total_input_elems;
 
 // constant globals
 
-constant_0_t zero_vec = {};
-constant_1_t comparison = {};
+constant_0_t zero = 0;
 
 
 // streaming data input
-__mram_noinit uint8_t input_data_buffer[INPUT_BUF_SIZE];
+__mram_noinit uint8_t element_input_buffer[INPUT_BUF_SIZE];
+__mram_noinit uint8_t globals_input_buffer[GLOBALS_SIZE_ALIGNED];
 
 // data output
 __host reduction_out_t reduction_output;
@@ -81,7 +81,7 @@ int main() {
     seqreader_t sr;
 
     input_t* current_read = seqread_init(
-        local_cache, &input_data_buffer[DATA_OFFSET + local_offset * sizeof(input_t)], &sr);
+        local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
 
     for (size_t i = 0; i < input_elem_count; ++i) {
         pipeline(current_read, reduction_idx);
@@ -104,10 +104,10 @@ int main() {
 
 void setup_inputs() {
     // read aligned MRAM chunk containing global data
-    __dma_aligned uint8_t buf[DATA_OFFSET + 8];
-    mram_read(input_data_buffer, buf, ((DATA_OFFSET - 1) | 7) + 1);
+    __dma_aligned uint8_t buf[GLOBALS_SIZE_ALIGNED];
+    mram_read(globals_input_buffer, buf, GLOBALS_SIZE_ALIGNED);
 
-    memcpy(&total_input_elems, &buf[ELEM_COUNT_OFFSET], sizeof(total_input_elems));
+    memcpy(&total_input_elems, &buf[0], sizeof(total_input_elems));
 
     // initialize global variables
     
@@ -119,22 +119,10 @@ void stage_0(const stage_0_in_t* restrict in_ptr, stage_0_out_t* restrict out_pt
     memcpy(&in, in_ptr, sizeof(in));
     {
         // MAP PROGRAM
-        for (size_t i = 0; i < 8; ++i) {
-    out[i] = 2 * in[i];
-}
+        out = in[0] + in[1];
 
     }
     memcpy(out_ptr, &out, sizeof(out));
-}
-
-int stage_1(const stage_1_in_t* restrict in_ptr) {
-    stage_1_in_t in;
-    memcpy(&in, in_ptr, sizeof(in));
-    {
-        // FILTER PROGRAM
-        return memcmp(in, comparison, sizeof(in)) != 0;
-
-    }
 }
 
 void pipeline_reduce(reduction_out_t* restrict out_ptr, const reduction_in_t* restrict in_ptr) {
@@ -143,9 +131,7 @@ void pipeline_reduce(reduction_out_t* restrict out_ptr, const reduction_in_t* re
     memcpy(&in, in_ptr, sizeof(in));
     memcpy(&out, out_ptr, sizeof(out));
     {
-        for (size_t i = 0; i < 4; ++i) {
-    out[i] += in[i];
-}
+        out += in;
 
     }
     memcpy(out_ptr, &out, sizeof(out));
@@ -157,22 +143,19 @@ void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_
     memcpy(&in, in_ptr, sizeof(in));
     memcpy(&out, out_ptr, sizeof(out));
     {
-        for (size_t i = 0; i < 4; ++i) {
-    out[i] += in[i];
-}
+        out += in;
 
     }
     memcpy(out_ptr, &out, sizeof(out));
 }
 
 void setup_reduction(uint32_t reduction_idx) {
-    memcpy(&reduction_vars[reduction_idx], &zero_vec, sizeof(zero_vec));
+    memcpy(&reduction_vars[reduction_idx], &zero, sizeof(zero));
 }
 
 void pipeline(input_t* data_in, uint32_t reduction_idx) {
     stage_0_in_t tmp_0;
 stage_1_in_t tmp_1;
-stage_2_in_t tmp_2;
 
 
     memcpy(&tmp_0, data_in, sizeof(tmp_0));
@@ -180,18 +163,13 @@ stage_2_in_t tmp_2;
     
     stage_0(&tmp_0, &tmp_1);
     
-    if (!stage_1(&tmp_1)) {
-        return;
-    }
-    memcpy(&tmp_2, &tmp_1, sizeof(tmp_2));
-    
 
 // LOCAL REDUCTION
 #ifdef SYNCHRONIZE_REDUCTION
     mutex_lock(&reduction_mutexes[reduction_idx]);
 #endif
 
-    pipeline_reduce(&reduction_vars[reduction_idx], &tmp_2);
+    pipeline_reduce(&reduction_vars[reduction_idx], &tmp_1);
 
 #ifdef SYNCHRONIZE_REDUCTION
     mutex_unlock(&reduction_mutexes[reduction_idx]);
@@ -204,4 +182,3 @@ void reduce() {
         pipeline_reduce_combine(&reduction_output, &reduction_vars[i]);
     }
 }
-    

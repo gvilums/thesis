@@ -25,7 +25,8 @@ stage1_in_t comparison;
 reduction_out_t zero_vec = 0;
 
 // streaming data input
-__mram_noinit uint8_t input_data_buffer[INPUT_BUF_SIZE];
+__mram_noinit uint8_t element_input_buffer[INPUT_BUF_SIZE];
+__mram_noinit uint8_t globals_input_buffer[GLOBALS_SIZE_ALIGNED];
 
 // data output
 __host reduction_out_t reduction_output;
@@ -76,7 +77,7 @@ int main() {
     seqreader_t sr;
 
     input_t* current_read = seqread_init(
-        local_cache, &input_data_buffer[DATA_OFFSET + local_offset * sizeof(input_t)], &sr);
+        local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
 
     for (size_t i = 0; i < input_elem_count; ++i) {
         pipeline(current_read, reduction_idx);
@@ -180,11 +181,11 @@ void pipeline(input_t* data_in, uint32_t reduction_idx) {
 
 void setup_inputs() {
     // read aligned MRAM chunk containing global data
-    __dma_aligned uint8_t buf[DATA_OFFSET + 8];
-    mram_read(input_data_buffer, buf, ((DATA_OFFSET - 1) | 7) + 1);
+    __dma_aligned uint8_t buf[GLOBALS_SIZE_ALIGNED];
+    mram_read(globals_input_buffer, buf, GLOBALS_SIZE_ALIGNED);
 
     // initialize global variables
-    memcpy(&total_input_elems, &buf[ELEM_COUNT_OFFSET], sizeof(total_input_elems));
+    memcpy(&total_input_elems, &buf[0], sizeof(total_input_elems));
     memcpy(&comparison, &buf[GLOBAL_0_OFFSET], sizeof(comparison));
 }
 

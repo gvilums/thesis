@@ -38,7 +38,7 @@ typedef uint32_t _reduction_t;
 // GLOBAL VARIABLES
 
 // streaming data input
-__mram_noinit uint8_t input_data_buffer[INPUT_BUF_SIZE];
+__mram_noinit uint8_t element_input_buffer[INPUT_BUF_SIZE];
 __mram_noinit uint8_t output_data_buffer[INPUT_BUF_SIZE];
 
 __host uint32_t total_input_elems;
@@ -128,7 +128,7 @@ int main() {
     seqreader_t sr;
 
     INPUT_TYPE* current_read =
-        seqread_init(local_cache, &input_data_buffer[data_offset * INPUT_ELEM_SIZE], &sr);
+        seqread_init(local_cache, &element_input_buffer[data_offset * INPUT_ELEM_SIZE], &sr);
 
     uint32_t elem_count = 0;
 
@@ -141,7 +141,7 @@ int main() {
 
     uint32_t output_offset = compute_offset(index);
 
-    current_read = seqread_init(local_cache, &input_data_buffer[data_offset * INPUT_ELEM_SIZE], &sr);
+    current_read = seqread_init(local_cache, &element_input_buffer[data_offset * INPUT_ELEM_SIZE], &sr);
     OUTPUT_TYPE* current_write = seqwrite_init(write_cache, &output_data_buffer[output_offset * OUTPUT_ELEM_SIZE], &sw);
 
     for (size_t i = 0; i < input_elem_count; ++i) {

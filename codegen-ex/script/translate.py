@@ -365,7 +365,7 @@ def create_host_main(num_globals: int) -> str:
     global_args = ""
     globals_init = ""
     for i in range(num_globals):
-        global_param_decl += f", global_{i}_t global_{i}"
+        global_param_decl += f", const global_{i}_t* global_{i}"
         global_args += f", global_{i}"
         globals_init += f"memcpy(&globals_data_less[GLOBAL_{i}_OFFSET], global_{i}, sizeof(global_{i}_t));\n"
     return host_main_template.format(global_param_decl=global_param_decl, global_args=global_args, globals_init=globals_init)
@@ -373,7 +373,7 @@ def create_host_main(num_globals: int) -> str:
 def create_host_header(num_globals: int) -> str:
     global_param_decl = ""
     for i in range(num_globals):
-        global_param_decl += f", global_{i}_t global_{i}"
+        global_param_decl += f", const global_{i}_t* global_{i}"
     return host_header_template.format(global_param_decl=global_param_decl)
 
 import tomllib
@@ -391,6 +391,7 @@ with open('example_input.toml', 'rb') as f:
 
     common_header += create_define("REDUCTION_VAR_COUNT", 12)
     common_header += create_define("INPUT_BUF_SIZE", "(1 << 16)")
+    common_header += '\n'
 
     typedefs = ""
 
@@ -468,8 +469,8 @@ with open('example_input.toml', 'rb') as f:
             typedefs += create_typedef("reduction_in_t", f"stage_{idx}_in_t")
             typedefs += create_typedef("reduction_out_t", f"stage_{idx}_out_t")
     
-    common_header += typedefs
-    common_header += offset_defines
+    common_header += typedefs + '\n'
+    common_header += offset_defines + '\n'
 
     device_code += create_pipeline(pipeline_temporaries, pipeline_compute_stages, len(data['stages']))
     device_code += create_global_reduce()

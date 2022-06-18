@@ -20,6 +20,7 @@
 // host input globals
 uint32_t total_input_elems;
 
+global_0_t global_val;
 
 
 // constant globals
@@ -110,7 +111,8 @@ void setup_inputs() {
     memcpy(&total_input_elems, &buf[0], sizeof(total_input_elems));
 
     // initialize global variables
-    
+    memcpy(&global_val, &buf[GLOBAL_0_OFFSET], sizeof(global_val));
+
 }
 
 void stage_0(const stage_0_in_t* restrict in_ptr, stage_0_out_t* restrict out_ptr) {
@@ -119,7 +121,7 @@ void stage_0(const stage_0_in_t* restrict in_ptr, stage_0_out_t* restrict out_pt
     memcpy(&in, in_ptr, sizeof(in));
     {
         // MAP PROGRAM
-        out = in[0] + in[1];
+        out = in[0] + in[1] + global_val;
 
     }
     memcpy(out_ptr, &out, sizeof(out));

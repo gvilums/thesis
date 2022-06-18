@@ -4,9 +4,9 @@
 name = "string_process"
 input = "uint32_t[2]"
 # declares variables which are global for all executions
-# globals = [
-#     { name = "zero_vec", type = "uint8_t[8]" }
-# ]
+globals = [
+    { name = "global_val", type = "uint32_t" }
+]
 constants = [
     { name = "zero", type = "uint32_t", init = "0" },
     # { name = "comparison", type = "uint8_t[8]" , init = "{}"},
@@ -19,7 +19,7 @@ sysincludes = ["string.h"]
 kind = "map"
 output = "uint32_t" 
 program = """
-out = in[0] + in[1];
+out = in[0] + in[1] + global_val;
 """ 
 
 # [[stages]]

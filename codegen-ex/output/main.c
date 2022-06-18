@@ -11,7 +11,8 @@ int main() {
         input[i][0] = 1;
         input[i][1] = 2;
     }
+    uint32_t global_0 = 1;
     reduction_out_t output;
-    process(&output, input, elem_count);
+    process(&output, input, elem_count, &global_0);
     printf("result: %u\n", output);
 }

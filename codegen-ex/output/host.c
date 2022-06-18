@@ -16,7 +16,7 @@ void setup_inputs(struct dpu_set_t set,
                    uint32_t nr_dpus,
                    const input_t* input,
                    size_t elem_count
-                   
+                   , const global_0_t* global_0
                    ) {
     struct dpu_set_t dpu;
     uint32_t dpu_id;
@@ -42,7 +42,8 @@ void setup_inputs(struct dpu_set_t set,
     uint8_t globals_data_less[GLOBALS_SIZE_ALIGNED];
     memcpy(&globals_data_less[0], &base_inputs, sizeof(elem_count_t));
 
-    
+    memcpy(&globals_data_less[GLOBAL_0_OFFSET], global_0, sizeof(global_0_t));
+
 
     /*
     memcpy(&globals_data_less[GLOBAL_0_OFFSET], global_0, sizeof(global_0_t));
@@ -84,7 +85,7 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
     memcpy(output, &outputs[0], sizeof(outputs[0]));
 }
 
-int process(reduction_out_t* output, const input_t* input, size_t elem_count ) {
+int process(reduction_out_t* output, const input_t* input, size_t elem_count , const global_0_t* global_0) {
     struct dpu_set_t set, dpu;
     uint32_t nr_dpus;
 
@@ -92,7 +93,7 @@ int process(reduction_out_t* output, const input_t* input, size_t elem_count ) {
     DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
     DPU_ASSERT(dpu_get_nr_dpus(set, &nr_dpus));
 
-    setup_inputs(set, nr_dpus, input, elem_count );
+    setup_inputs(set, nr_dpus, input, elem_count , global_0);
 
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
     compute_final_result(set, nr_dpus, output);

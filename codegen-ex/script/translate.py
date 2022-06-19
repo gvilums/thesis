@@ -1,20 +1,20 @@
 map_template = """
 void {func_name}(const {in_type}* restrict in_ptr, {out_type}* restrict out_ptr) {{
-    {in_type} in;
-    {out_type} out;
-    memcpy(&in, in_ptr, sizeof(in));
+    // {in_type} in;
+    // {out_type} out;
+    // memcpy(&in, in_ptr, sizeof(in));
     {{
         // MAP PROGRAM
         {program}
     }}
-    memcpy(out_ptr, &out, sizeof(out));
+    // memcpy(out_ptr, &out, sizeof(out));
 }}
 """
 
 filter_template = """
 int {func_name}(const {in_type}* restrict in_ptr) {{
-    {in_type} in;
-    memcpy(&in, in_ptr, sizeof(in));
+    // {in_type} in;
+    // memcpy(&in, in_ptr, sizeof(in));
     {{
         // FILTER PROGRAM
         {program}
@@ -45,27 +45,27 @@ void pipeline(input_t* data_in, uint32_t reduction_idx) {{
 
 reduce_template = """
 void pipeline_reduce(reduction_out_t* restrict out_ptr, const reduction_in_t* restrict in_ptr) {{
-    reduction_in_t in;
-    reduction_out_t out;
-    memcpy(&in, in_ptr, sizeof(in));
-    memcpy(&out, out_ptr, sizeof(out));
+    // reduction_in_t in;
+    // reduction_out_t out;
+    // memcpy(&in, in_ptr, sizeof(in));
+    // memcpy(&out, out_ptr, sizeof(out));
     {{
         {program}
     }}
-    memcpy(out_ptr, &out, sizeof(out));
+    // memcpy(out_ptr, &out, sizeof(out));
 }}
 """
 
 reduce_combine_template = """
 void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {{
-    reduction_out_t in;
-    reduction_out_t out;
-    memcpy(&in, in_ptr, sizeof(in));
-    memcpy(&out, out_ptr, sizeof(out));
+    // reduction_out_t in;
+    // reduction_out_t out;
+    // memcpy(&in, in_ptr, sizeof(in));
+    // memcpy(&out, out_ptr, sizeof(out));
     {{
         {program}
     }}
-    memcpy(out_ptr, &out, sizeof(out));
+    // memcpy(out_ptr, &out, sizeof(out));
 }}
 """
 
@@ -176,10 +176,6 @@ int main() {{
     if (index == 0) {{
         reduce();
     }}
-
-    if (index == 0) {{
-        printf("ok\\n");
-    }}
     return 0;
 }}
 
@@ -231,26 +227,17 @@ void setup_inputs(struct dpu_set_t set,
 
         DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)&input[local_offset]));
     }}
-    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "element_input_buffer", 0, sizeof(input_t) * (base_inputs + 1), DPU_XFER_DEFAULT));
+    size_t aligned_max_size = ((sizeof(input_t) * base_inputs) | 7) + 1;
+    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "element_input_buffer", 0, aligned_max_size, DPU_XFER_DEFAULT));
 
     uint8_t globals_data_less[GLOBALS_SIZE_ALIGNED];
     memcpy(&globals_data_less[0], &base_inputs, sizeof(elem_count_t));
 
     {globals_init}
 
-    /*
-    memcpy(&globals_data_less[GLOBAL_0_OFFSET], global_0, sizeof(global_0_t));
-    memcpy(&globals_data_less[GLOBAL_1_OFFSET], global_1, sizeof(global_1_t));
-    ...
-    */
-
     uint8_t globals_data_more[GLOBALS_SIZE_ALIGNED];
     memcpy(globals_data_more, globals_data_less, sizeof(globals_data_more));
     *((uint32_t*)globals_data_more) += 1;
-
-    /*
-        insertion point for initialization of globals
-    */
 
     DPU_FOREACH(set, dpu, dpu_id) {{
         if (dpu_id < remaining_elems) {{
@@ -378,7 +365,7 @@ def create_host_header(num_globals: int) -> str:
 
 import tomllib
 
-with open('example_input.toml', 'rb') as f:
+with open('histogram.toml', 'rb') as f:
     data = tomllib.load(f)
 
     common_header = """
@@ -389,8 +376,8 @@ with open('example_input.toml', 'rb') as f:
 
 """
 
-    common_header += create_define("REDUCTION_VAR_COUNT", 12)
-    common_header += create_define("INPUT_BUF_SIZE", "(1 << 16)")
+    common_header += create_define("REDUCTION_VAR_COUNT", 16)
+    common_header += create_define("INPUT_BUF_SIZE", "(1 << 20)")
     common_header += '\n'
 
     typedefs = ""

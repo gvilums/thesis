@@ -1,0 +1,20 @@
+# An example pipeline to be compiled for execution using UPMEM
+
+[pipeline]
+name = "sum_reduce"
+input = "uint32_t"
+# declares variables which are global for all executions
+constants = [
+    { name = "zero", type = "uint32_t", init = "0" },
+]
+
+[[stages]]
+kind = "reduce"
+identity = "zero"
+output = "uint32_t"
+program = """
+*out_ptr += in_ptr;
+"""
+combine = """
+*out_ptr += in_ptr;
+"""

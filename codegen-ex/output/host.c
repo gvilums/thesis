@@ -16,7 +16,7 @@ void setup_inputs(struct dpu_set_t set,
                    uint32_t nr_dpus,
                    const input_t* input,
                    size_t elem_count
-                   , const global_0_t* global_0
+                   
                    ) {
     struct dpu_set_t dpu;
     uint32_t dpu_id;
@@ -37,27 +37,17 @@ void setup_inputs(struct dpu_set_t set,
 
         DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)&input[local_offset]));
     }
-    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "element_input_buffer", 0, sizeof(input_t) * (base_inputs + 1), DPU_XFER_DEFAULT));
+    size_t aligned_max_size = ((sizeof(input_t) * base_inputs) | 7) + 1;
+    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "element_input_buffer", 0, aligned_max_size, DPU_XFER_DEFAULT));
 
     uint8_t globals_data_less[GLOBALS_SIZE_ALIGNED];
     memcpy(&globals_data_less[0], &base_inputs, sizeof(elem_count_t));
 
-    memcpy(&globals_data_less[GLOBAL_0_OFFSET], global_0, sizeof(global_0_t));
-
-
-    /*
-    memcpy(&globals_data_less[GLOBAL_0_OFFSET], global_0, sizeof(global_0_t));
-    memcpy(&globals_data_less[GLOBAL_1_OFFSET], global_1, sizeof(global_1_t));
-    ...
-    */
+    
 
     uint8_t globals_data_more[GLOBALS_SIZE_ALIGNED];
     memcpy(globals_data_more, globals_data_less, sizeof(globals_data_more));
     *((uint32_t*)globals_data_more) += 1;
-
-    /*
-        insertion point for initialization of globals
-    */
 
     DPU_FOREACH(set, dpu, dpu_id) {
         if (dpu_id < remaining_elems) {
@@ -85,7 +75,7 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
     memcpy(output, &outputs[0], sizeof(outputs[0]));
 }
 
-int process(reduction_out_t* output, const input_t* input, size_t elem_count , const global_0_t* global_0) {
+int process(reduction_out_t* output, const input_t* input, size_t elem_count ) {
     struct dpu_set_t set, dpu;
     uint32_t nr_dpus;
 
@@ -93,7 +83,7 @@ int process(reduction_out_t* output, const input_t* input, size_t elem_count , c
     DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
     DPU_ASSERT(dpu_get_nr_dpus(set, &nr_dpus));
 
-    setup_inputs(set, nr_dpus, input, elem_count , global_0);
+    setup_inputs(set, nr_dpus, input, elem_count );
 
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
     compute_final_result(set, nr_dpus, output);
@@ -103,13 +93,15 @@ int process(reduction_out_t* output, const input_t* input, size_t elem_count , c
 }
 
 void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
-    reduction_out_t in;
-    reduction_out_t out;
-    memcpy(&in, in_ptr, sizeof(in));
-    memcpy(&out, out_ptr, sizeof(out));
+    // reduction_out_t in;
+    // reduction_out_t out;
+    // memcpy(&in, in_ptr, sizeof(in));
+    // memcpy(&out, out_ptr, sizeof(out));
     {
-        out += in;
+        for (int i = 0; i < 256; ++i) {
+    (*out_ptr)[i] += (*in_ptr)[i];
+}
 
     }
-    memcpy(out_ptr, &out, sizeof(out));
+    // memcpy(out_ptr, &out, sizeof(out));
 }

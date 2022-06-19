@@ -1,0 +1,22 @@
+# An example pipeline to be compiled for execution using UPMEM
+
+[pipeline]
+name = "histogram_small"
+input = "uint8_t"
+# declares variables which are global for all executions
+constants = [
+    { name = "empty_array", type = "uint32_t[256]", init = "{}" },
+]
+
+[[stages]]
+kind = "reduce"
+identity = "empty_array"
+output = "uint32_t[256]"
+program = """
+(*out_ptr)[*in_ptr] += 1;
+"""
+combine = """
+for (int i = 0; i < 256; ++i) {
+    (*out_ptr)[i] += (*in_ptr)[i];
+}
+"""

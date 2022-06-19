@@ -87,13 +87,6 @@ int process(reduction_out_t* output, const input_t* input, size_t elem_count , c
 }
 
 void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
-    // reduction_out_t in;
-    // reduction_out_t out;
-    // memcpy(&in, in_ptr, sizeof(in));
-    // memcpy(&out, out_ptr, sizeof(out));
-    {
-        *out_ptr += *in_ptr;
+    *out_ptr += *in_ptr;
 
-    }
-    // memcpy(out_ptr, &out, sizeof(out));
 }

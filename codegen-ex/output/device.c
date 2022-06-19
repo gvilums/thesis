@@ -110,16 +110,16 @@ void setup_inputs() {
 
 void stage_0(const stage_0_in_t* in_ptr, stage_0_out_t* out_ptr) {
     *out_ptr = (*in_ptr)[0] + (*in_ptr)[1] + global_val;
-
 }
+
 int stage_1(const stage_1_in_t* in_ptr) {
     return *in_ptr == 4;
-
 }
+
 void stage_2(const stage_2_in_t* in_ptr, stage_2_out_t* out_ptr) {
     *out_ptr = *in_ptr;
-
 }
+
 
 void pipeline_reduce(reduction_out_t* restrict out_ptr, const reduction_in_t* restrict in_ptr) {
     *out_ptr += *in_ptr;

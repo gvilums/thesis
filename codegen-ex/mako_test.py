@@ -14,21 +14,12 @@ def compute_input_indices(stages):
             last_stable = prev_idx
         stage["input_idx"] = last_stable
 
+def create_reduce_pipeline(data):
 
-def main():
-    data = read_config("example_input.toml")
     device_code_template = Template(filename="templates/device.c")
     common_header_template = Template(filename="templates/common.h")
     host_code_template = Template(filename="templates/host.c")
     host_header_template = Template(filename="templates/host.h")
-
-
-    if "globals" not in data["pipeline"]:
-        data["pipeline"]["globals"] = []
-
-    if "constants" not in data["pipeline"]:
-        data["pipeline"]["constants"] = []
-
 
     compute_input_indices(data["stages"])
 
@@ -54,6 +45,50 @@ def main():
 
     with open('output/host.h', 'w') as out:
         out.write(host_header)
+
+
+def create_noreduce_pipeline(data):
+    device_code_template = Template(filename="templates/device_noreduce.c")
+    common_header_template = Template(filename="templates/common_noreduce.h")
+    host_code_template = Template(filename="templates/host_noreduce.c")
+    host_header_template = Template(filename="templates/host_noreduce.h")
+
+    data["stages"].append({"kind": "output"})
+    compute_input_indices(data["stages"])
+
+    pipeline = data["pipeline"]
+    stages = data["stages"][:len(data["stages"]) - 1]
+
+    device_code = device_code_template.render(pipeline=pipeline, stages=stages)
+    common_header = common_header_template.render(pipeline=pipeline, stages=stages)
+    host_code = host_code_template.render(pipeline=pipeline, stages=stages)
+    host_header = host_header_template.render(pipeline=pipeline, stages=stages)
+
+    with open('output/common.h', 'w') as out:
+        out.write(common_header)
+
+    with open('output/device.c', 'w') as out:
+        out.write(device_code)
+
+    with open('output/host.c', 'w') as out:
+        out.write(host_code)
+
+    with open('output/host.h', 'w') as out:
+        out.write(host_header)
+
+
+def main():
+    data = read_config("inputs/example_input.toml")
+    if "globals" not in data["pipeline"]:
+        data["pipeline"]["globals"] = []
+
+    if "constants" not in data["pipeline"]:
+        data["pipeline"]["constants"] = []
+
+    if data["stages"][-1]["kind"] == "reduce":
+        create_reduce_pipeline(data)
+    else:
+        create_noreduce_pipeline(data)
 
 
 if __name__ == "__main__":

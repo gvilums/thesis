@@ -10,14 +10,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#if REDUCTION_VAR_COUNT < NR_TASKLETS
-#define SYNCHRONIZE_REDUCTION
-#elif REDUCTION_VAR_COUNT > NR_TASKLETS
-#error Cannot have more reduction variables than tasklets
-#endif
-
 // host input globals
-uint32_t total_input_elems;
+elem_count_t total_input_elems;
 
 % for i, global_value in enumerate(pipeline["globals"]):
 
@@ -38,22 +32,19 @@ __mram_noinit uint8_t element_input_buffer[INPUT_BUF_SIZE];
 __host uint8_t globals_input_buffer[GLOBALS_SIZE_ALIGNED];
 
 // data output
-__host reduction_out_t reduction_output;
+__mram_noinit uint8_t element_output_buffer[INPUT_BUF_SIZE];
+__host elem_count_t total_output_elems;
 
-// reduction values and helpers
-reduction_out_t reduction_vars[REDUCTION_VAR_COUNT];
-__atomic_bit uint8_t reduction_mutexes[REDUCTION_VAR_COUNT];
+// element count for each tasklet
+uint32_t output_elems[NR_TASKLETS];
 
 // various barriers
 BARRIER_INIT(setup_barrier, NR_TASKLETS);
-BARRIER_INIT(reduction_init_barrier, NR_TASKLETS);
-BARRIER_INIT(final_reduction_barrier, NR_TASKLETS);
+BARRIER_INIT(output_offset_compute, NR_TASKLETS);
 
 
-void pipeline(input_t* data_in, uint32_t reduction_idx);
+void pipeline(input_t* data_in, output_t* data_out);
 void setup_inputs();
-void setup_reduction(uint32_t reduction_idx);
-void reduce();
 
 int main() {
     uint32_t index = me();
@@ -75,29 +66,34 @@ int main() {
         local_offset += remaining_elems;
     }
 
-    size_t reduction_idx = index % REDUCTION_VAR_COUNT;
-
-    // init local reduction variable
-    if (index == reduction_idx) {
-        setup_reduction(reduction_idx);
-    }
-    barrier_wait(&reduction_init_barrier);
-
     seqreader_buffer_t local_cache = seqread_alloc();
     seqreader_t sr;
 
     input_t* current_read = seqread_init(
         local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
 
+    output_elems[index] = 0;
+    output_t dummy_output;
     for (size_t i = 0; i < input_elem_count; ++i) {
-        pipeline(current_read, reduction_idx);
+        output_elems += pipeline(current_read, &dummy_output);
         current_read = seqread_get(current_read, sizeof(input_t), &sr);
     }
 
-    // only main tasklet performs final reduction
-    barrier_wait(&final_reduction_barrier);
-    if (index == 0) {
-        reduce();
+    barrier_wait(&output_offset_compute);
+
+    size_t output_offset = 0;
+    for (int i = 0; i < index; ++i) {
+        output_offset += output_elems[i];
+    }
+
+    input_t* current_read = seqread_init(
+        local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
+
+    size_t current_output_offset = output_offset
+    for (size_t i = 0; i < input_elem_count; ++i) {
+        // TODO this is a direct MRAM access, which is bad. Implement something aking to seqread, but for writing
+        current_output_offset += pipeline(current_read, &element_output_buffer[current_output_offset * sizeof(output_t)]);
+        current_read = seqread_get(current_read, sizeof(input_t), &sr);
     }
     return 0;
 }
@@ -128,19 +124,7 @@ int stage_${i}(const stage_${i}_in_t* in_ptr) {
     % endif
 % endfor
 
-void pipeline_reduce(reduction_out_t* restrict out_ptr, const reduction_in_t* restrict in_ptr) {
-    ${ reduction["program"] }
-}
-
-void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
-    ${ reduction["combine"] }
-}
-
-void setup_reduction(uint32_t reduction_idx) {
-    memcpy(&reduction_vars[reduction_idx], &${ reduction["identity"] }, sizeof(${ reduction["identity"] }));
-}
-
-void pipeline(input_t* data_in, uint32_t reduction_idx) {
+int pipeline(input_t* data_in, output_t* data_out) {
 <%!
     def input_name(stage):
         input_idx = stage["input_idx"]
@@ -162,26 +146,12 @@ void pipeline(input_t* data_in, uint32_t reduction_idx) {
     % elif stage["kind"] == "filter":
     // filter
     if (!stage_${i}(${input_name(stage)})) {
-        return;
+        return 0;
     }
     % endif
 % endfor
 
-// LOCAL REDUCTION
-#ifdef SYNCHRONIZE_REDUCTION
-    mutex_lock(&reduction_mutexes[reduction_idx]);
-#endif
+    // memcpy(data_out, &tmp_..., sizeof(output_t));
 
-    pipeline_reduce(&reduction_vars[reduction_idx], ${input_name(reduction)});
-
-#ifdef SYNCHRONIZE_REDUCTION
-    mutex_unlock(&reduction_mutexes[reduction_idx]);
-#endif
-}
-
-void reduce() {
-    memcpy(&reduction_output, &reduction_vars[0], sizeof(reduction_vars[0]));
-    for (size_t i = 1; i < REDUCTION_VAR_COUNT; ++i) {
-        pipeline_reduce_combine(&reduction_output, &reduction_vars[i]);
-    }
+    return 1;
 }

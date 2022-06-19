@@ -72,10 +72,10 @@ void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_
 setup_inputs_template = """
 void setup_inputs() {{
     // read aligned MRAM chunk containing global data
-    __dma_aligned uint8_t buf[GLOBALS_SIZE_ALIGNED];
-    mram_read(globals_input_buffer, buf, GLOBALS_SIZE_ALIGNED);
+    // __dma_aligned uint8_t buf[GLOBALS_SIZE_ALIGNED];
+    // mram_read(globals_input_buffer, buf, GLOBALS_SIZE_ALIGNED);
 
-    memcpy(&total_input_elems, &buf[0], sizeof(total_input_elems));
+    memcpy(&total_input_elems, &globals_input_buffer[0], sizeof(total_input_elems));
 
     // initialize global variables
     {globals_init}
@@ -112,7 +112,7 @@ uint32_t total_input_elems;
 
 // streaming data input
 __mram_noinit uint8_t element_input_buffer[INPUT_BUF_SIZE];
-__mram_noinit uint8_t globals_input_buffer[GLOBALS_SIZE_ALIGNED];
+__host uint8_t globals_input_buffer[GLOBALS_SIZE_ALIGNED];
 
 // data output
 __host reduction_out_t reduction_output;
@@ -364,8 +364,9 @@ def create_host_header(num_globals: int) -> str:
     return host_header_template.format(global_param_decl=global_param_decl)
 
 import tomllib
+import dataclasses
 
-with open('histogram.toml', 'rb') as f:
+with open('example_input.toml', 'rb') as f:
     data = tomllib.load(f)
 
     common_header = """
@@ -403,7 +404,7 @@ with open('histogram.toml', 'rb') as f:
             offset_defines += create_define(f"GLOBAL_{idx}_OFFSET", "sizeof(elem_count_t)")
         else:
             offset_defines += create_define(f"GLOBAL_{idx}_OFFSET", f"(GLOBAL_{idx - 1}_OFFSET + sizeof(global_{idx - 1}_t))")
-        globals_init += f"memcpy(&{name}, &buf[GLOBAL_{idx}_OFFSET], sizeof({name}));\n"
+        globals_init += f"memcpy(&{name}, &globals_input_buffer[GLOBAL_{idx}_OFFSET], sizeof({name}));\n"
 
     num_globals = len(general['globals'])
     if num_globals == 0:
@@ -448,7 +449,11 @@ with open('histogram.toml', 'rb') as f:
             pipeline_compute_stages += create_filter_call(idx)
         elif kind == 'reduce':
             device_code += create_reduce(stage['program'])
-            device_code += create_reduce_combine(stage['combine'])
+            if 'combine' in stage:
+                device_code += create_reduce_combine(stage['combine'])
+            else:
+                device_code += create_reduce_combine(stage['program'])
+
             device_code += setup_reduction_template.format(identity=stage['identity'])
 
             host_code += create_reduce_combine(stage['combine'])
@@ -473,3 +478,15 @@ with open('histogram.toml', 'rb') as f:
 
     with open('output/host.h', 'w') as out:
         out.write(host_header)
+
+
+import subprocess
+import re
+
+subprocess.run(["dpu-upmem-dpurte-clang", "-DSTACK_SIZE_DEFAULT=1024", "-DNR_TASKLETS=16", "-g", "-O2", "output/device.c", "-o", "build/device"], check=True)
+
+stack_analysis_output = subprocess.run(["dpu_stack_analyzer", "build/device"], capture_output=True).stdout.decode("utf8")
+
+regex_result = re.search(r"Max size: (\d+)\n", stack_analysis_output)
+max_stack_size = int(regex_result.group(1))
+print(max_stack_size)

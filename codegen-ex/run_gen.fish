@@ -1,4 +1,4 @@
-/usr/bin/python3.11 ./script/translate.py
+/usr/bin/python3.11 ./mako_test.py
 cd build
 rm -r *
 dpu-upmem-dpurte-clang -DSTACK_SIZE_DEFAULT=1024 -DNR_TASKLETS=16 -g -O ../output/device.c -o device

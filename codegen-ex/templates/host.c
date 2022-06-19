@@ -11,7 +11,11 @@
 void pipeline_reduce_combine(reduction_out_t* restrict out_ptr,
                              const reduction_out_t* restrict in_ptr);
 
-void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus, const input_t* input, size_t elem_count, const global_0_t* global_0) {
+void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus, const input_t* input, size_t elem_count\
+% for global_value in pipeline["globals"]:
+, const global_${ loop.index }_t* global_${ loop.index }\
+% endfor
+) {
     struct dpu_set_t dpu;
     uint32_t dpu_id;
 
@@ -37,7 +41,9 @@ void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus, const input_t* input, 
     uint8_t globals_data_less[GLOBALS_SIZE_ALIGNED];
     memcpy(&globals_data_less[0], &base_inputs, sizeof(elem_count_t));
 
-    memcpy(&globals_data_less[GLOBAL_0_OFFSET], global_0, sizeof(global_0_t));
+% for global_value in pipeline["globals"]:
+    memcpy(&globals_data_less[GLOBAL_${ loop.index }_OFFSET], global_${ loop.index }, sizeof(global_${ loop.index }_t));
+% endfor
 
     uint8_t globals_data_more[GLOBALS_SIZE_ALIGNED];
     memcpy(globals_data_more, globals_data_less, sizeof(globals_data_more));

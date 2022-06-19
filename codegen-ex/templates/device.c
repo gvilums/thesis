@@ -19,15 +19,19 @@
 // host input globals
 uint32_t total_input_elems;
 
+% for i, global_value in enumerate(pipeline["globals"]):
 
-global_0_t global_val;
+global_${i}_t ${global_value["name"]};
 
+% endfor
 
 // constant globals
 
+% for i, constant in enumerate(pipeline["constants"]):
 
-constant_0_t zero = 0;
+constant_${i}_t ${constant["name"]} = ${constant["init"]};
 
+% endfor
 
 // streaming data input
 __mram_noinit uint8_t element_input_buffer[INPUT_BUF_SIZE];
@@ -104,57 +108,69 @@ void setup_inputs() {
 
     // initialize global variables
 
-    memcpy(&global_val, &globals_input_buffer[GLOBAL_0_OFFSET], sizeof(global_val));
+% for global_value in pipeline["globals"]:
+    memcpy(&${ global_value["name"]}, &globals_input_buffer[GLOBAL_${ loop.index }_OFFSET], sizeof(${ global_value["name"] }));
+% endfor
 
 }
 
-void stage_0(const stage_0_in_t* in_ptr, stage_0_out_t* out_ptr) {
-    *out_ptr = (*in_ptr)[0] + (*in_ptr)[1] + global_val;
-
+% for i, stage in enumerate(stages):
+    % if stage["kind"] == "map":
+void stage_${i}(const stage_${i}_in_t* in_ptr, stage_${i}_out_t* out_ptr) {
+    ${ stage["program"] }
 }
-int stage_1(const stage_1_in_t* in_ptr) {
-    return *in_ptr == 4;
-
+    % elif stage["kind"] == "filter":
+int stage_${i}(const stage_${i}_in_t* in_ptr) {
+    ${ stage["program"] }
 }
-void stage_2(const stage_2_in_t* in_ptr, stage_2_out_t* out_ptr) {
-    *out_ptr = *in_ptr;
-
-}
+    % endif
+% endfor
 
 void pipeline_reduce(reduction_out_t* restrict out_ptr, const reduction_in_t* restrict in_ptr) {
-    *out_ptr += *in_ptr;
-
+    ${ reduction["program"] }
 }
 
 void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
-    *out_ptr += *in_ptr;
-
+    ${ reduction["combine"] }
 }
 
 void setup_reduction(uint32_t reduction_idx) {
-    memcpy(&reduction_vars[reduction_idx], &zero, sizeof(zero));
+    memcpy(&reduction_vars[reduction_idx], &${ reduction["identity"] }, sizeof(${ reduction["identity"] }));
 }
 
 void pipeline(input_t* data_in, uint32_t reduction_idx) {
+<%!
+    def input_name(stage):
+        input_idx = stage["input_idx"]
+        if input_idx == -1:
+            return "data_in"
+        else:
+            return f"&tmp_{input_idx}"
+%>
+% for i, stage in enumerate(stages):
+    % if stage["kind"] != "filter":
+    stage_${ i }_out_t tmp_${ i };
+    % endif
+% endfor
 
-    stage_0_out_t tmp_0;
-    stage_2_out_t tmp_2;
-
+% for i, stage in enumerate(stages):
+    % if stage["kind"] == "map":
     // map
-    stage_0(data_in, &tmp_0);
+    stage_${i}(${input_name(stage)}, &tmp_${i});
+    % elif stage["kind"] == "filter":
     // filter
-    if (!stage_1(&tmp_0)) {
+    if (!stage_${i}(${input_name(stage)})) {
         return;
     }
-    // map
-    stage_2(&tmp_0, &tmp_2);
+    % endif
+% endfor
 
 // LOCAL REDUCTION
 #ifdef SYNCHRONIZE_REDUCTION
     mutex_lock(&reduction_mutexes[reduction_idx]);
 #endif
 
-    pipeline_reduce(&reduction_vars[reduction_idx], &tmp_2);
+    pipeline_reduce(&reduction_vars[reduction_idx], ${input_name(reduction)});
 
 #ifdef SYNCHRONIZE_REDUCTION
     mutex_unlock(&reduction_mutexes[reduction_idx]);

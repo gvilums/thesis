@@ -75,7 +75,11 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
     memcpy(output, &outputs[0], sizeof(outputs[0]));
 }
 
-int process(reduction_out_t* output, const input_t* input, size_t elem_count , const global_0_t* global_0) {
+int process(reduction_out_t* output, const input_t* input, size_t elem_count\
+% for global_value in pipeline["globals"]:
+, const global_${ loop.index }_t* global_${ loop.index }\
+% endfor
+) {
     struct dpu_set_t set, dpu;
     uint32_t nr_dpus;
 
@@ -83,7 +87,11 @@ int process(reduction_out_t* output, const input_t* input, size_t elem_count , c
     DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
     DPU_ASSERT(dpu_get_nr_dpus(set, &nr_dpus));
 
-    setup_inputs(set, nr_dpus, input, elem_count , global_0);
+    setup_inputs(set, nr_dpus, input, elem_count\
+% for global_value in pipeline["globals"]:
+, global_${ loop.index }\
+% endfor
+    );
 
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
     compute_final_result(set, nr_dpus, output);

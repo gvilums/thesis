@@ -1,4 +1,5 @@
 from mako.template import Template
+from mako.lookup import TemplateLookup
 import tomllib
 import dataclasses
 
@@ -14,12 +15,13 @@ def compute_input_indices(stages):
             last_stable = prev_idx
         stage["input_idx"] = last_stable
 
-def create_reduce_pipeline(data):
+def create_reduce_pipeline(data, lookup: TemplateLookup):
 
-    device_code_template = Template(filename="templates/device.c")
-    common_header_template = Template(filename="templates/common.h")
-    host_code_template = Template(filename="templates/host.c")
-    host_header_template = Template(filename="templates/host.h")
+    device_code_template = lookup.get_template("device.c")
+    common_header_template = lookup.get_template("common.h")
+    host_code_template = lookup.get_template("host.c")
+    host_header_template = lookup.get_template("host.h")
+
 
     compute_input_indices(data["stages"])
 
@@ -47,11 +49,11 @@ def create_reduce_pipeline(data):
         out.write(host_header)
 
 
-def create_noreduce_pipeline(data):
-    device_code_template = Template(filename="templates/device_noreduce.c")
-    common_header_template = Template(filename="templates/common_noreduce.h")
-    host_code_template = Template(filename="templates/host_noreduce.c")
-    host_header_template = Template(filename="templates/host_noreduce.h")
+def create_noreduce_pipeline(data, lookup: TemplateLookup):
+    device_code_template = lookup.get_template("device_noreduce.c")
+    common_header_template = lookup.get_template("common_noreduce.h")
+    host_code_template = lookup.get_template("host_noreduce.c")
+    host_header_template = lookup.get_template("host_noreduce.h")
 
     data["stages"].append({"kind": "output"})
     compute_input_indices(data["stages"])
@@ -78,7 +80,8 @@ def create_noreduce_pipeline(data):
 
 
 def main():
-    data = read_config("inputs/example_input.toml")
+    lookup = TemplateLookup(directories=["templates"])
+    data = read_config("inputs/filter_even.toml")
     if "globals" not in data["pipeline"]:
         data["pipeline"]["globals"] = []
 
@@ -86,9 +89,9 @@ def main():
         data["pipeline"]["constants"] = []
 
     if data["stages"][-1]["kind"] == "reduce":
-        create_reduce_pipeline(data)
+        create_reduce_pipeline(data, lookup)
     else:
-        create_noreduce_pipeline(data)
+        create_noreduce_pipeline(data, lookup)
 
 
 if __name__ == "__main__":

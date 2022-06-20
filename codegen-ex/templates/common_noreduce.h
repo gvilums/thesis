@@ -40,7 +40,13 @@ ${ create_typedef("output_t", f"stage_{ len(stages) - 1 }_out_t") }
 % for global_value in pipeline["globals"][1:]:
 #define GLOBAL_${ loop.index + 1}_OFFSET (GLOBAL_${ loop.index }_OFFSET + sizeof(global_${ loop.index }_t))
 % endfor
+% if len(pipeline["globals"]) > 0:
+<%
+    idx = len(pipeline["globals"])
+%>
+#define GLOBAL_${ idx }_OFFSET (GLOBAL_${ idx - 1 }_OFFSET + sizeof(global_${ idx - 1 }_t))
+% endif
 
-#define GLOBALS_SIZE (GLOBAL_${ len(pipeline["globals"]) - 1 }_OFFSET + sizeof(global_0_t))
+#define GLOBALS_SIZE GLOBAL_${ len(pipeline["globals"]) }_OFFSET
 #define GLOBALS_SIZE_ALIGNED (((GLOBALS_SIZE - 1) | 7) + 1)
 

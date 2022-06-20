@@ -43,7 +43,7 @@ BARRIER_INIT(setup_barrier, NR_TASKLETS);
 BARRIER_INIT(output_offset_compute, NR_TASKLETS);
 
 
-void pipeline(input_t* data_in, output_t* data_out);
+int pipeline(input_t* data_in, output_t* data_out);
 void setup_inputs();
 
 int main() {
@@ -75,7 +75,7 @@ int main() {
     output_elems[index] = 0;
     output_t dummy_output;
     for (size_t i = 0; i < input_elem_count; ++i) {
-        output_elems += pipeline(current_read, &dummy_output);
+        output_elems[index] += pipeline(current_read, &dummy_output);
         current_read = seqread_get(current_read, sizeof(input_t), &sr);
     }
 
@@ -86,13 +86,22 @@ int main() {
         output_offset += output_elems[i];
     }
 
-    input_t* current_read = seqread_init(
+    if (index == NR_TASKLETS - 1) {
+        total_output_elems = output_offset + output_elems[index];
+    }
+
+    current_read = seqread_init(
         local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
 
-    size_t current_output_offset = output_offset
+    size_t current_output_offset = output_offset;
+    output_t output_buf;
     for (size_t i = 0; i < input_elem_count; ++i) {
-        // TODO this is a direct MRAM access, which is bad. Implement something aking to seqread, but for writing
-        current_output_offset += pipeline(current_read, &element_output_buffer[current_output_offset * sizeof(output_t)]);
+        if (pipeline(current_read, &output_buf)) {
+            // printf(" %u: %u %u\n", index, *current_read, output_buf);
+            // TODO this is a direct MRAM access, which is bad. Implement something aking to seqread, but for writing
+            memcpy(&element_output_buffer[current_output_offset * sizeof(output_t)], &output_buf, sizeof(output_t));
+            current_output_offset += 1;
+        }
         current_read = seqread_get(current_read, sizeof(input_t), &sr);
     }
     return 0;
@@ -151,7 +160,7 @@ int pipeline(input_t* data_in, output_t* data_out) {
     % endif
 % endfor
 
-    // memcpy(data_out, &tmp_..., sizeof(output_t));
+    memcpy(data_out, ${ input_name(stages[-1]) }, sizeof(output_t));
 
     return 1;
 }

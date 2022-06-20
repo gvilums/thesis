@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include "common_noreduce.h"
+#include "common.h"
 
 size_t process(output_t** output, const input_t* input, size_t elem_count\
 % for global_value in pipeline["globals"]:

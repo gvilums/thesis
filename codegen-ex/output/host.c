@@ -7,10 +7,6 @@
 
 #define DPU_BINARY "device"
 
-
-void pipeline_reduce_combine(reduction_out_t* restrict out_ptr,
-                             const reduction_out_t* restrict in_ptr);
-
 void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus, const input_t* input, size_t elem_count, const global_0_t* global_0) {
     struct dpu_set_t dpu;
     uint32_t dpu_id;
@@ -53,23 +49,57 @@ void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus, const input_t* input, 
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "globals_input_buffer", 0, GLOBALS_SIZE_ALIGNED, DPU_XFER_DEFAULT));
 }
 
-void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_t* output) {
+size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** output) {
     struct dpu_set_t dpu;
     uint32_t dpu_id;
-    reduction_out_t outputs[nr_dpus];
-    DPU_FOREACH(set, dpu, dpu_id) { DPU_ASSERT(dpu_prepare_xfer(dpu, &outputs[dpu_id])); }
+    elem_count_t output_elem_counts[nr_dpus];
+    DPU_FOREACH(set, dpu, dpu_id) { 
+        DPU_ASSERT(dpu_prepare_xfer(dpu, &output_elem_counts[dpu_id])); 
+    }
     DPU_ASSERT(
-        dpu_push_xfer(set, DPU_XFER_FROM_DPU, "reduction_output", 0, sizeof(reduction_out_t), DPU_XFER_DEFAULT));
+        dpu_push_xfer(set, DPU_XFER_FROM_DPU, "total_output_elems", 0, sizeof(uint32_t), DPU_XFER_DEFAULT));
 
+    size_t total_output_elems = 0;
+    elem_count_t max_output_elems = 0;
+    for (int i = 0; i < nr_dpus; ++i) {
+        total_output_elems += output_elem_counts[i];
+        if (output_elem_counts[i] > max_output_elems) {
+            max_output_elems = output_elem_counts[i];
+        }
+    }
+    // align to 8-byte multiple for transfer
+    max_output_elems = ((max_output_elems - 1) | 7) + 1;
 
-    for (int i = 1; i < nr_dpus; ++i) {
-        pipeline_reduce_combine(&outputs[0], &outputs[i]);
+    output_t* output_data_buffers[nr_dpus];
+    DPU_FOREACH(set, dpu, dpu_id) { 
+        output_data_buffers[dpu_id] = malloc(sizeof(output_t) * max_output_elems);
+        DPU_ASSERT(dpu_prepare_xfer(dpu, output_data_buffers[dpu_id])); 
     }
 
-    memcpy(output, &outputs[0], sizeof(outputs[0]));
+    // DPU_FOREACH(set, dpu) {
+    //     DPU_ASSERT(dpu_log_read(dpu, stdout));
+    // }
+
+    DPU_ASSERT(
+        dpu_push_xfer(set, DPU_XFER_FROM_DPU, "element_output_buffer", 0, sizeof(output_t) * max_output_elems, DPU_XFER_DEFAULT));
+
+    output_t* final_output = malloc(sizeof(output_t) * total_output_elems);
+
+    size_t offset = 0;
+    for (int i = 0; i < nr_dpus; ++i) {
+        // for (int j = 0; j < output_elem_counts[i]; ++j) {
+        //     printf("%u ", output_data_buffers[i][j]);
+        // }
+        // puts("\n");
+        memcpy(&final_output[offset], output_data_buffers[i], sizeof(output_t) * output_elem_counts[i]);
+        offset += output_elem_counts[i];
+        free(output_data_buffers[i]);
+    }
+    *output = final_output;
+    return total_output_elems;
 }
 
-int process(reduction_out_t* output, const input_t* input, size_t elem_count, const global_0_t* global_0) {
+size_t process(output_t** output, const input_t* input, size_t elem_count, const global_0_t* global_0) {
     struct dpu_set_t set, dpu;
     uint32_t nr_dpus;
 
@@ -80,13 +110,8 @@ int process(reduction_out_t* output, const input_t* input, size_t elem_count, co
     setup_inputs(set, nr_dpus, input, elem_count, global_0    );
 
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
-    compute_final_result(set, nr_dpus, output);
+    size_t output_elems = compute_final_result(set, nr_dpus, output);
 
     DPU_ASSERT(dpu_free(set));
-    return 0;
-}
-
-void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
-    *out_ptr += *in_ptr;
-
+    return output_elems;
 }

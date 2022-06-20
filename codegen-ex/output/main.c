@@ -3,9 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define EXAMPLE_INPUT
+// #define EXAMPLE_INPUT
 // #define HISTOGRAM
-// #define FILTER_MULTIPLES
+#define FILTER_MULTIPLES
+// #define SUM_REDUCE
 
 #ifdef EXAMPLE_INPUT
 int main() {
@@ -40,7 +41,7 @@ int main() {
 
 #ifdef FILTER_MULTIPLES
 int main() {
-    const size_t elem_count = 20;
+    const size_t elem_count = 10000;
     input_t* input = malloc(sizeof(input_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
         input[i] = i;
@@ -48,13 +49,25 @@ int main() {
     output_t* output;
     uint32_t factor = 2;
     size_t result_count = process(&output, input, elem_count, &factor);
-    printf("%lu\n", result_count);
+    printf("number of results: %lu\n", result_count);
     for (uint32_t i = 0; i < result_count; ++i) {
-        printf("%u ", output[i]);
-        if (output[i] != factor * i) {
+        if (output[i] != i * factor) {
             puts("error");
+            return 1;
         }
     }
-    puts("\n");
+}
+#endif
+
+#ifdef SUM_REDUCE
+int main() {
+    const size_t elem_count = 1000;
+    input_t* input = malloc(sizeof(input_t) * elem_count);
+    for (int i = 0; i < elem_count; ++i) {
+        input[i] = i;
+    }
+    reduction_out_t output;
+    process(&output, input, elem_count);
+    printf("result: %u\n", output);
 }
 #endif

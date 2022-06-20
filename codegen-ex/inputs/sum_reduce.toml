@@ -13,8 +13,8 @@ kind = "reduce"
 identity = "zero"
 output = "uint32_t"
 program = """
-*out_ptr += in_ptr;
+*out_ptr += *in_ptr;
 """
 combine = """
-*out_ptr += in_ptr;
+*out_ptr += *in_ptr;
 """

@@ -82,9 +82,9 @@ size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** o
         DPU_ASSERT(dpu_prepare_xfer(dpu, output_data_buffers[dpu_id])); 
     }
 
-    DPU_FOREACH(set, dpu) {
-        DPU_ASSERT(dpu_log_read(dpu, stdout));
-    }
+    // DPU_FOREACH(set, dpu) {
+    //     DPU_ASSERT(dpu_log_read(dpu, stdout));
+    // }
 
     DPU_ASSERT(
         dpu_push_xfer(set, DPU_XFER_FROM_DPU, "element_output_buffer", 0, sizeof(output_t) * max_output_elems, DPU_XFER_DEFAULT));
@@ -93,10 +93,10 @@ size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** o
 
     size_t offset = 0;
     for (int i = 0; i < nr_dpus; ++i) {
-        for (int j = 0; j < output_elem_counts[i]; ++j) {
-            printf("%u ", output_data_buffers[i][j]);
-        }
-        puts("\n");
+        // for (int j = 0; j < output_elem_counts[i]; ++j) {
+        //     printf("%u ", output_data_buffers[i][j]);
+        // }
+        // puts("\n");
         memcpy(&final_output[offset], output_data_buffers[i], sizeof(output_t) * output_elem_counts[i]);
         offset += output_elem_counts[i];
         free(output_data_buffers[i]);
@@ -113,7 +113,7 @@ size_t process(output_t** output, const input_t* input, size_t elem_count\
     struct dpu_set_t set, dpu;
     uint32_t nr_dpus;
 
-    DPU_ASSERT(dpu_alloc(1, "backend=simulator", &set));
+    DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, "backend=simulator", &set));
     DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
     DPU_ASSERT(dpu_get_nr_dpus(set, &nr_dpus));
 

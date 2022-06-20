@@ -9,24 +9,18 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
-#if REDUCTION_VAR_COUNT < NR_TASKLETS
-#define SYNCHRONIZE_REDUCTION
-#elif REDUCTION_VAR_COUNT > NR_TASKLETS
-#error Cannot have more reduction variables than tasklets
-#endif
+static_assert(sizeof(output_t) % 8 == 0, "output type must be 8-byte aligned");
 
 // host input globals
-uint32_t total_input_elems;
+elem_count_t total_input_elems;
 
 
-global_0_t global_val;
+global_0_t factor;
 
 
 // constant globals
-
-
-constant_0_t zero = 0;
 
 
 // streaming data input
@@ -34,22 +28,70 @@ __mram_noinit uint8_t element_input_buffer[INPUT_BUF_SIZE];
 __host uint8_t globals_input_buffer[GLOBALS_SIZE_ALIGNED];
 
 // data output
-__host reduction_out_t reduction_output;
+__mram_noinit uint8_t element_output_buffer[INPUT_BUF_SIZE];
+__host elem_count_t total_output_elems;
 
-// reduction values and helpers
-reduction_out_t reduction_vars[REDUCTION_VAR_COUNT];
-__atomic_bit uint8_t reduction_mutexes[REDUCTION_VAR_COUNT];
 
 // various barriers
 BARRIER_INIT(setup_barrier, NR_TASKLETS);
-BARRIER_INIT(reduction_init_barrier, NR_TASKLETS);
-BARRIER_INIT(final_reduction_barrier, NR_TASKLETS);
+BARRIER_INIT(output_offset_compute, NR_TASKLETS);
+
+// output handling
+#define MRAM_ALIGN 8
+#define LOCAL_OUTBUF_SIZE (1 << 8)
+
+// element count for each tasklet
+uint32_t output_elems[NR_TASKLETS];
+
+__dma_aligned uint8_t local_output_buffers[NR_TASKLETS][LOCAL_OUTBUF_SIZE];
+uint32_t local_outbuf_sizes[NR_TASKLETS];
+uint32_t current_output_offsets[NR_TASKLETS];
+
+// MUTEX_INIT(stdout_mutex);
+
+void flush_outputs() {
+    uint32_t i = me();
+
+    // copy data from local output buffer into correct location in global buffer
+    // mutex_lock(stdout_mutex);
+    // for (int j = 0; j < local_outbuf_sizes[i] / sizeof(output_t); ++j) {
+    //     printf("%x ", local_output_buffers[i][j * sizeof(output_t)]);
+    // }
+    // puts("");
+    // mutex_unlock(stdout_mutex);
+    mram_write(&local_output_buffers[i][0], &element_output_buffer[current_output_offsets[i]], local_outbuf_sizes[i]);
+    // advance offset by size of data we just copied
+    current_output_offsets[i] += local_outbuf_sizes[i];
+    // reset the local output buffer to size 0
+    local_outbuf_sizes[i] = 0;
+}
+
+output_t* get_output_place() {
+    uint32_t i = me();
+
+    // if adding another value of type output_t would overflow the buffer, flush
+    if (local_outbuf_sizes[i] + sizeof(output_t) > LOCAL_OUTBUF_SIZE) {
+        flush_outputs();
+    }
+
+    output_t* place = (output_t*)&local_output_buffers[i][local_outbuf_sizes[i]];
+    return place;
+}
+
+void confirm_write() {
+    local_outbuf_sizes[me()] += sizeof(output_t);
+}
+
+void init_output_writer(size_t element_offset) {
+    uint32_t i = me();
+
+    local_outbuf_sizes[i] = 0;
+    current_output_offsets[i] = element_offset * sizeof(output_t);
+}
 
 
-void pipeline(input_t* data_in, uint32_t reduction_idx);
+int pipeline(input_t* data_in, output_t* data_out);
 void setup_inputs();
-void setup_reduction(uint32_t reduction_idx);
-void reduce();
 
 int main() {
     uint32_t index = me();
@@ -71,30 +113,43 @@ int main() {
         local_offset += remaining_elems;
     }
 
-    size_t reduction_idx = index % REDUCTION_VAR_COUNT;
-
-    // init local reduction variable
-    if (index == reduction_idx) {
-        setup_reduction(reduction_idx);
-    }
-    barrier_wait(&reduction_init_barrier);
-
     seqreader_buffer_t local_cache = seqread_alloc();
     seqreader_t sr;
 
     input_t* current_read = seqread_init(
         local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
 
+    output_elems[index] = 0;
+    output_t dummy_output;
     for (size_t i = 0; i < input_elem_count; ++i) {
-        pipeline(current_read, reduction_idx);
+        output_elems[index] += pipeline(current_read, &dummy_output);
         current_read = seqread_get(current_read, sizeof(input_t), &sr);
     }
 
-    // only main tasklet performs final reduction
-    barrier_wait(&final_reduction_barrier);
-    if (index == 0) {
-        reduce();
+    barrier_wait(&output_offset_compute);
+
+    size_t output_offset = 0;
+    for (int i = 0; i < index; ++i) {
+        output_offset += output_elems[i];
     }
+
+    if (index == NR_TASKLETS - 1) {
+        total_output_elems = output_offset + output_elems[index];
+    }
+
+    current_read = seqread_init(
+        local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
+
+    init_output_writer(output_offset);
+    output_t* current_write = get_output_place();
+    for (size_t i = 0; i < input_elem_count; ++i) {
+        if (pipeline(current_read, current_write)) {
+            confirm_write();
+            current_write = get_output_place();
+        }
+        current_read = seqread_get(current_read, sizeof(input_t), &sr);
+    }
+    flush_outputs();
     return 0;
 }
 
@@ -104,66 +159,24 @@ void setup_inputs() {
 
     // initialize global variables
 
-    memcpy(&global_val, &globals_input_buffer[GLOBAL_0_OFFSET], sizeof(global_val));
+    memcpy(&factor, &globals_input_buffer[GLOBAL_0_OFFSET], sizeof(factor));
 
 }
 
-void stage_0(const stage_0_in_t* in_ptr, stage_0_out_t* out_ptr) {
-    *out_ptr = (*in_ptr)[0] + (*in_ptr)[1] + global_val;
-}
-
-int stage_1(const stage_1_in_t* in_ptr) {
-    return *in_ptr == 4;
-}
-
-void stage_2(const stage_2_in_t* in_ptr, stage_2_out_t* out_ptr) {
-    *out_ptr = *in_ptr;
+int stage_0(const stage_0_in_t* in_ptr) {
+    return *in_ptr % factor == 0;
 }
 
 
-void pipeline_reduce(reduction_out_t* restrict out_ptr, const reduction_in_t* restrict in_ptr) {
-    *out_ptr += *in_ptr;
+int pipeline(input_t* data_in, output_t* data_out) {
 
-}
 
-void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
-    *out_ptr += *in_ptr;
-
-}
-
-void setup_reduction(uint32_t reduction_idx) {
-    memcpy(&reduction_vars[reduction_idx], &zero, sizeof(zero));
-}
-
-void pipeline(input_t* data_in, uint32_t reduction_idx) {
-
-    stage_0_out_t tmp_0;
-    stage_2_out_t tmp_2;
-
-    // map
-    stage_0(data_in, &tmp_0);
     // filter
-    if (!stage_1(&tmp_0)) {
-        return;
+    if (!stage_0(data_in)) {
+        return 0;
     }
-    // map
-    stage_2(&tmp_0, &tmp_2);
 
-// LOCAL REDUCTION
-#ifdef SYNCHRONIZE_REDUCTION
-    mutex_lock(&reduction_mutexes[reduction_idx]);
-#endif
+    memcpy(data_out, data_in, sizeof(output_t));
 
-    pipeline_reduce(&reduction_vars[reduction_idx], &tmp_2);
-
-#ifdef SYNCHRONIZE_REDUCTION
-    mutex_unlock(&reduction_mutexes[reduction_idx]);
-#endif
-}
-
-void reduce() {
-    memcpy(&reduction_output, &reduction_vars[0], sizeof(reduction_vars[0]));
-    for (size_t i = 1; i < REDUCTION_VAR_COUNT; ++i) {
-        pipeline_reduce_combine(&reduction_output, &reduction_vars[i]);
-    }
+    return 1;
 }

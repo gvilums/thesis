@@ -19,7 +19,7 @@ ${ create_typedef(f"global_{ loop.index }_t", global_value["type"]) }
 % endfor
 
 % for constant in pipeline["constants"]:
-${ create_typedef(f"constant_{ loop.index }_t", global_value["type"]) }
+${ create_typedef(f"constant_{ loop.index }_t", constant["type"]) }
 % endfor
 
 % for stage in stages:
@@ -43,15 +43,9 @@ ${ create_typedef("reduction_in_t", f"stage_{reduction['input_idx']}_out_t") }
 ${ create_typedef("reduction_out_t", reduction["output"]) }
 
 #define GLOBAL_0_OFFSET sizeof(elem_count_t)
-% for global_value in pipeline["globals"][1:]:
-#define GLOBAL_${ loop.index + 1}_OFFSET (GLOBAL_${ loop.index }_OFFSET + sizeof(global_${ loop.index }_t))
+% for i in range(1, len(pipeline["globals"]) + 1):
+#define GLOBAL_${ i }_OFFSET (GLOBAL_${ i - 1 }_OFFSET + sizeof(global_${ i - 1 }_t))
 % endfor
-% if len(pipeline["globals"]) > 0:
-<%
-    idx = len(pipeline["globals"])
-%>
-#define GLOBAL_${ idx }_OFFSET (GLOBAL_${ idx - 1 }_OFFSET + sizeof(global_${ idx - 1 }_t))
-% endif
 
 #define GLOBALS_SIZE GLOBAL_${ len(pipeline["globals"]) }_OFFSET
 #define GLOBALS_SIZE_ALIGNED (((GLOBALS_SIZE - 1) | 7) + 1)

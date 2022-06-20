@@ -93,7 +93,7 @@ def normalize_config(config):
 
 def main():
     lookup = TemplateLookup(directories=["templates"])
-    config = read_config("inputs/example_input.toml")
+    config = read_config("inputs/filter_even.toml")
 
     normalize_config(config)
     config["pipeline"]["nr_tasklets"] = 16

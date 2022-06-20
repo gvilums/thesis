@@ -37,15 +37,9 @@ ${ create_typedef(f"stage_{ loop.index }_out_t", f"stage_{ loop.index }_in_t") }
 ${ create_typedef("output_t", f"stage_{ len(stages) - 1 }_out_t") }
 
 #define GLOBAL_0_OFFSET sizeof(elem_count_t)
-% for global_value in pipeline["globals"][1:]:
-#define GLOBAL_${ loop.index + 1}_OFFSET (GLOBAL_${ loop.index }_OFFSET + sizeof(global_${ loop.index }_t))
+% for i in range(1, len(pipeline["globals"]) + 1):
+#define GLOBAL_${ i }_OFFSET (GLOBAL_${ i - 1 }_OFFSET + sizeof(global_${ i - 1 }_t))
 % endfor
-% if len(pipeline["globals"]) > 0:
-<%
-    idx = len(pipeline["globals"])
-%>
-#define GLOBAL_${ idx }_OFFSET (GLOBAL_${ idx - 1 }_OFFSET + sizeof(global_${ idx - 1 }_t))
-% endif
 
 #define GLOBALS_SIZE GLOBAL_${ len(pipeline["globals"]) }_OFFSET
 #define GLOBALS_SIZE_ALIGNED (((GLOBALS_SIZE - 1) | 7) + 1)

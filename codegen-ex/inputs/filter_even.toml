@@ -2,7 +2,7 @@
 
 [pipeline]
 name = "filer_multiples"
-input = "uint32_t"
+input = "uint64_t"
 globals = [
     { name = "factor", type = "uint32_t" }
 ]

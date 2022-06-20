@@ -97,6 +97,9 @@ void init_output_writer(size_t element_offset) {
 }
 
 
+% if "no_filter" not in pipeline:
+int pipeline_eval_condition(input_t* data_in);
+% endif
 int pipeline(input_t* data_in, output_t* data_out);
 void setup_inputs();
 
@@ -126,12 +129,15 @@ int main() {
     input_t* current_read = seqread_init(
         local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
 
+% if "no_filter" in pipeline:
+    output_elems[index] = input_elem_count;
+% else:
     output_elems[index] = 0;
-    output_t dummy_output;
     for (size_t i = 0; i < input_elem_count; ++i) {
-        output_elems[index] += pipeline(current_read, &dummy_output);
+        output_elems[index] += pipeline_eval_condition(current_read);
         current_read = seqread_get(current_read, sizeof(input_t), &sr);
     }
+% endif
 
     barrier_wait(&output_offset_compute);
 
@@ -186,7 +192,6 @@ int stage_${i}(const stage_${i}_in_t* in_ptr) {
     % endif
 % endfor
 
-int pipeline(input_t* data_in, output_t* data_out) {
 <%!
     def input_name(stage):
         input_idx = stage["input_idx"]
@@ -195,6 +200,7 @@ int pipeline(input_t* data_in, output_t* data_out) {
         else:
             return f"&tmp_{input_idx}"
 %>
+int pipeline(input_t* data_in, output_t* data_out) {
 % for i, stage in enumerate(stages):
     % if stage["kind"] != "filter":
     stage_${ i }_out_t tmp_${ i };
@@ -213,7 +219,37 @@ int pipeline(input_t* data_in, output_t* data_out) {
     % endif
 % endfor
 
-    memcpy(data_out, ${ input_name(stages[-1]) }, sizeof(output_t));
+    memcpy(data_out, ${ input_name(output) }, sizeof(output_t));
 
     return 1;
 }
+
+<%
+    filter_eval_stages = []
+    for stage in stages:
+        filter_eval_stages.append(stage)
+        if "last_filter" in stage:
+            break
+%>
+% if "no_filter" not in pipeline: 
+int pipeline_eval_condition(input_t* data_in) {
+% for i, stage in enumerate(filter_eval_stages):
+    % if stage["kind"] != "filter":
+    stage_${ i }_out_t tmp_${ i };
+    % endif
+% endfor
+
+% for i, stage in enumerate(filter_eval_stages):
+    % if stage["kind"] == "map":
+    // map
+    stage_${i}(${input_name(stage)}, &tmp_${i});
+    % elif stage["kind"] == "filter":
+    // filter
+    if (!stage_${i}(${input_name(stage)})) {
+        return 0;
+    }
+    % endif
+% endfor
+    return 1;
+}
+% endif

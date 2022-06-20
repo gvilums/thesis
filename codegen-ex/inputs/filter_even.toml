@@ -14,3 +14,11 @@ kind = "filter"
 program = """
 return *in_ptr % factor == 0;
 """ 
+
+[[stages]]
+# filters data elements by a predicate
+kind = "map"
+output = "uint64_t"
+program = """
+*out_ptr = *in_ptr;
+""" 

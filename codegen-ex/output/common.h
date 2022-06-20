@@ -9,11 +9,11 @@
 typedef uint32_t elem_count_t;
 typedef uint64_t input_t;
 
-typedef uint32_t global_0_t;
+typedef uint64_t global_0_t;
 
 
 typedef input_t stage_0_in_t;
-typedef stage_0_in_t stage_0_out_t;
+typedef uint64_t stage_0_out_t;
 
 typedef stage_0_out_t output_t;
 

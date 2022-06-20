@@ -15,6 +15,20 @@ def compute_input_indices(stages):
             last_stable = prev_idx
         stage["input_idx"] = last_stable
 
+def compute_filter_info(config):
+    contains_filter = False
+    for stage in config["stages"]:
+        if stage["kind"] == "filter":
+            contains_filter = True
+            break
+    if not contains_filter:
+        config["pipeline"]["no_filter"] = True
+    else:
+        for stage in reversed(config["stages"]):
+            if stage["kind"] == "filter":
+                stage["last_filter"] = True
+                break
+
 def create_reduce_pipeline(data, lookup: TemplateLookup):
 
     device_code_template = lookup.get_template("device.c")
@@ -57,14 +71,16 @@ def create_noreduce_pipeline(data, lookup: TemplateLookup):
 
     data["stages"].append({"kind": "output"})
     compute_input_indices(data["stages"])
+    compute_filter_info(data)
 
     pipeline = data["pipeline"]
     stages = data["stages"][:len(data["stages"]) - 1]
+    output = data["stages"][-1]
 
-    device_code = device_code_template.render(pipeline=pipeline, stages=stages)
-    common_header = common_header_template.render(pipeline=pipeline, stages=stages)
-    host_code = host_code_template.render(pipeline=pipeline, stages=stages)
-    host_header = host_header_template.render(pipeline=pipeline, stages=stages)
+    device_code = device_code_template.render(pipeline=pipeline, stages=stages, output=output)
+    common_header = common_header_template.render(pipeline=pipeline, stages=stages, output=output)
+    host_code = host_code_template.render(pipeline=pipeline, stages=stages, output=output)
+    host_header = host_header_template.render(pipeline=pipeline, stages=stages, output=output)
 
     with open('output/common.h', 'w') as out:
         out.write(common_header)
@@ -93,7 +109,7 @@ def normalize_config(config):
 
 def main():
     lookup = TemplateLookup(directories=["templates"])
-    config = read_config("inputs/filter_even.toml")
+    config = read_config("inputs/map_only.toml")
 
     normalize_config(config)
     config["pipeline"]["nr_tasklets"] = 16

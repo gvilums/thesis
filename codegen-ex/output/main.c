@@ -5,8 +5,9 @@
 
 // #define EXAMPLE_INPUT
 // #define HISTOGRAM
-#define FILTER_MULTIPLES
+// #define FILTER_MULTIPLES
 // #define SUM_REDUCE
+#define MAP_ONLY
 
 #ifdef EXAMPLE_INPUT
 int main() {
@@ -69,5 +70,26 @@ int main() {
     reduction_out_t output;
     process(&output, input, elem_count);
     printf("result: %u\n", output);
+}
+#endif
+
+#ifdef MAP_ONLY
+int main() {
+    const size_t elem_count = 100;
+    input_t* input = malloc(sizeof(input_t) * elem_count);
+    for (int i = 0; i < elem_count; ++i) {
+        input[i] = i;
+    }
+    output_t* output;
+    global_0_t factor = 2;
+    size_t result_count = process(&output, input, elem_count, &factor);
+    printf("number of results: %lu\n", result_count);
+    for (uint32_t i = 0; i < result_count; ++i) {
+        if (output[i] != i * factor) {
+            puts("error");
+            return 1;
+        }
+    }
+    puts("ok");
 }
 #endif

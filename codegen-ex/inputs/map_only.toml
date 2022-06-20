@@ -1,0 +1,15 @@
+# An example pipeline to be compiled for execution using UPMEM
+
+[pipeline]
+name = "scale_by"
+input = "uint64_t"
+globals = [
+    { name = "scale", type = "uint64_t" }
+]
+
+[[stages]]
+kind = "map"
+output = "uint64_t"
+program = """
+*out_ptr = scale * *in_ptr;
+"""

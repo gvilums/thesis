@@ -17,7 +17,7 @@ static_assert(sizeof(output_t) % 8 == 0, "output type must be 8-byte aligned");
 elem_count_t total_input_elems;
 
 
-global_0_t factor;
+global_0_t scale;
 
 
 // constant globals
@@ -119,12 +119,7 @@ int main() {
     input_t* current_read = seqread_init(
         local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
 
-    output_elems[index] = 0;
-    output_t dummy_output;
-    for (size_t i = 0; i < input_elem_count; ++i) {
-        output_elems[index] += pipeline(current_read, &dummy_output);
-        current_read = seqread_get(current_read, sizeof(input_t), &sr);
-    }
+    output_elems[index] = input_elem_count;
 
     barrier_wait(&output_offset_compute);
 
@@ -159,24 +154,25 @@ void setup_inputs() {
 
     // initialize global variables
 
-    memcpy(&factor, &globals_input_buffer[GLOBAL_0_OFFSET], sizeof(factor));
+    memcpy(&scale, &globals_input_buffer[GLOBAL_0_OFFSET], sizeof(scale));
 
 }
 
-int stage_0(const stage_0_in_t* in_ptr) {
-    return *in_ptr % factor == 0;
+void stage_0(const stage_0_in_t* in_ptr, stage_0_out_t* out_ptr) {
+    *out_ptr = scale * *in_ptr;
 }
+
 
 
 int pipeline(input_t* data_in, output_t* data_out) {
+    stage_0_out_t tmp_0;
 
+    // map
+    stage_0(data_in, &tmp_0);
 
-    // filter
-    if (!stage_0(data_in)) {
-        return 0;
-    }
-
-    memcpy(data_out, data_in, sizeof(output_t));
+    memcpy(data_out, &tmp_0, sizeof(output_t));
 
     return 1;
 }
+
+

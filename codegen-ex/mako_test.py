@@ -78,20 +78,30 @@ def create_noreduce_pipeline(data, lookup: TemplateLookup):
     with open('output/host.h', 'w') as out:
         out.write(host_header)
 
+def normalize_config(config):
+    assert "pipeline" in config
+    assert "stages" in config
+    assert len(config["stages"]) > 0
+
+    if "globals" not in config["pipeline"]:
+        config["pipeline"]["globals"] = []
+
+    if "constants" not in config["pipeline"]:
+        config["pipeline"]["constants"] = []
+    
+
 
 def main():
     lookup = TemplateLookup(directories=["templates"])
-    data = read_config("inputs/filter_even.toml")
-    if "globals" not in data["pipeline"]:
-        data["pipeline"]["globals"] = []
+    config = read_config("inputs/example_input.toml")
 
-    if "constants" not in data["pipeline"]:
-        data["pipeline"]["constants"] = []
+    normalize_config(config)
+    config["pipeline"]["nr_tasklets"] = 16
 
-    if data["stages"][-1]["kind"] == "reduce":
-        create_reduce_pipeline(data, lookup)
+    if config["stages"][-1]["kind"] == "reduce":
+        create_reduce_pipeline(config, lookup)
     else:
-        create_noreduce_pipeline(data, lookup)
+        create_noreduce_pipeline(config, lookup)
 
 
 if __name__ == "__main__":

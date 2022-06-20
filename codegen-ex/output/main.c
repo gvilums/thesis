@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// #define EXAMPLE_INPUT
+#define EXAMPLE_INPUT
 // #define HISTOGRAM
-#define FILTER_MULTIPLES
+// #define FILTER_MULTIPLES
 
 #ifdef EXAMPLE_INPUT
 int main() {
@@ -40,7 +40,7 @@ int main() {
 
 #ifdef FILTER_MULTIPLES
 int main() {
-    const size_t elem_count = 40;
+    const size_t elem_count = 20;
     input_t* input = malloc(sizeof(input_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
         input[i] = i;

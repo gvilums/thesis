@@ -41,10 +41,34 @@ uint32_t output_elems[NR_TASKLETS];
 // various barriers
 BARRIER_INIT(setup_barrier, NR_TASKLETS);
 BARRIER_INIT(output_offset_compute, NR_TASKLETS);
+BARRIER_INIT(output_finalize, NR_TASKLETS);
+
+
+uint8_t fixed_output_buffers[NR_TASKLETS][8];
 
 
 int pipeline(input_t* data_in, output_t* data_out);
 void setup_inputs();
+
+void write_output(size_t elem_offset, output_t* data) {
+    size_t byte_offset = elem_offset * sizeof(output_t);
+    size_t byte_offset_end = byte_offset + sizeof(output_t);
+
+    uint8_t tmp_buf[16 + sizeof(output_t)];
+
+    size_t aligned_offset = byte_offset & ~7;
+    size_t aligned_offset_end = ((byte_offset_end - 1) | 7) + 1;
+
+
+    mram_read(&element_output_buffer[aligned_offset], tmp_buf, aligned_offset_end - aligned_offset);
+
+
+    memcpy(&tmp_buf[byte_offset - aligned_offset], data, sizeof(output_t));
+
+    mram_write(tmp_buf, &element_output_buffer[aligned_offset], aligned_offset_end - aligned_offset);
+
+    // memcpy(&element_output_buffer[byte_offset], data, sizeof(output_t));
+}
 
 int main() {
     uint32_t index = me();
@@ -95,14 +119,80 @@ int main() {
 
     size_t current_output_offset = output_offset;
     output_t output_buf;
-    for (size_t i = 0; i < input_elem_count; ++i) {
+
+    size_t i = 0;
+    for (; i < input_elem_count; ++i) {
         if (pipeline(current_read, &output_buf)) {
-            // printf(" %u: %u %u\n", index, *current_read, output_buf);
             // TODO this is a direct MRAM access, which is bad. Implement something aking to seqread, but for writing
-            memcpy(&element_output_buffer[current_output_offset * sizeof(output_t)], &output_buf, sizeof(output_t));
+            write_output(current_output_offset, &output_buf);
+            // printf("tasklet %u: %u\n", index, output_buf);
+
+            // fill fixed output buffer
+            size_t current_fill = (current_output_offset - output_offset) * sizeof(output_t);
+            if (sizeof(output_t) >= 8 - current_fill) {
+                memcpy(&fixed_output_buffers[index][current_fill], &output_buf, 8 - current_fill);
+                break;
+            } else {
+                memcpy(&fixed_output_buffers[index][current_fill], &output_buf, sizeof(output_t));
+            }
+
             current_output_offset += 1;
         }
         current_read = seqread_get(current_read, sizeof(input_t), &sr);
+    }
+    for (; i < input_elem_count; ++i) {
+        if (pipeline(current_read, &output_buf)) {
+            // TODO this is a direct MRAM access, which is bad. Implement something aking to seqread, but for writing
+            write_output(current_output_offset, &output_buf);
+            // memcpy(&element_output_buffer[current_output_offset * sizeof(output_t)], &output_buf, sizeof(output_t));
+            current_output_offset += 1;
+        }
+        current_read = seqread_get(current_read, sizeof(input_t), &sr);
+    }
+
+
+    // printf("tasklet %u [%u]: %u %u\n", index, output_elems[index], ((int32_t*)fixed_output_buffers[index])[0], ((int32_t*)fixed_output_buffers[index])[1]);
+
+    barrier_wait(&output_finalize);
+
+
+    if (index == 0) {
+        // {
+        //     seqreader_buffer_t local_cache = seqread_alloc();
+        //     seqreader_t sr;
+
+        //     output_t* current_read = seqread_init(
+        //         local_cache, &element_output_buffer[0], &sr);
+
+        //     for (size_t i = 0; i < total_output_elems; ++i) {
+        //         printf("%u ", *current_read);
+        //         current_read = seqread_get(current_read, sizeof(output_t), &sr);
+        //     }
+        //     puts("");
+        // }
+
+        size_t offset = 0;
+        for (int i = 0; i < NR_TASKLETS - 1; ++i) {
+            offset += output_elems[i] * sizeof(output_t);
+            // unaligned output
+            // printf("offset: %u\n", offset);
+            if ((offset & 7) != 0) { 
+                // printf("fixing: %u\n", offset);
+                // 1. read 8-byte chunk from mram
+                // 2. fix it up with the subsequent fixed buffer (maybe use multiple buffers)
+                // 3. write back chunk
+                uint8_t fixup_buffer[8];
+                mram_read(&element_output_buffer[offset & ~7], &fixup_buffer[0], sizeof(fixup_buffer));
+
+                memcpy(&fixup_buffer[offset & 7], fixed_output_buffers[i + 1], 8 - (offset & 7));
+                // printf("tasklet %u [%u]: %u %u\n", i + 1, output_elems[i + 1], ((int32_t*)fixed_output_buffers[i + 1])[0], ((int32_t*)fixed_output_buffers[i + 1])[1]);
+
+                mram_write(&fixup_buffer[0], &element_output_buffer[offset & ~7], sizeof(fixup_buffer));
+            }
+        }
+    }
+    if (index == 0) {
+        puts("ok");
     }
     return 0;
 }

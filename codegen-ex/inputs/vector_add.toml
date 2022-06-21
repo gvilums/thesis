@@ -2,8 +2,6 @@
 
 [pipeline]
 name = "vector_add"
-globals = []
-constants = []
 
 [[stages]]
 kind = "input"

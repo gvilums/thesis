@@ -1,14 +1,14 @@
-<%!
-    def create_typedef(name: str, type: str) -> str:
-        base, bracket, rest = type.partition('[')
-        return f"typedef {base} {name}{bracket + rest};"
-%>
+<%def name="create_typedef(name, type)">\
+<%
+    base, bracket, rest = type.partition('[')
+%>\
+typedef ${base} ${name}${bracket + rest};\
+</%def>
 #pragma once
 
 #include "stdint.h"
 #include "stddef.h"
 
-#define REDUCTION_VAR_COUNT ${ pipeline["reduction_vars"] }
 #define INPUT_BUF_SIZE (1 << 20)
 #define NUM_INPUTS ${ len(in_stage["inputs"]) }
 
@@ -41,9 +41,7 @@ ${ create_typedef(f"stage_{ stage['id'] }_out_t", f"stage_{ stage['id'] }_in_t")
     % endif
 % endfor
 
-${ create_typedef("reduction_in_t", f"stage_{reduction['input_idx']}_out_t") }
-${ create_typedef("reduction_out_t", reduction["output"]) }
-typedef reduction_out_t output_t;
+<%block name="specific_defs"/>
 
 #define GLOBAL_0_OFFSET sizeof(elem_count_t)
 % for i in range(1, len(pipeline["globals"]) + 1):

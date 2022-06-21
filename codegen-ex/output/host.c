@@ -9,8 +9,14 @@
 
 
 
-void pipeline_reduce_combine(reduction_out_t* restrict out_ptr,
-                             const reduction_out_t* restrict in_ptr);
+
+
+
+void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
+    *out_ptr += *in_ptr;
+
+}
+
 
 void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus 
 , const input_0_t* input_0, const input_1_t* input_1, size_t elem_count, const global_0_t* global_0) {
@@ -67,6 +73,7 @@ void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "globals_input_buffer", 0, GLOBALS_SIZE_ALIGNED, DPU_XFER_DEFAULT));
 }
 
+
 void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_t* output) {
     struct dpu_set_t dpu;
     uint32_t dpu_id;
@@ -86,6 +93,8 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
     memcpy(output, &outputs[0], sizeof(outputs[0]));
 }
 
+
+
 int process(output_t* output 
 , const input_0_t* input_0, const input_1_t* input_1, size_t elem_count, const global_0_t* global_0) {
     struct dpu_set_t set, dpu;
@@ -95,16 +104,12 @@ int process(output_t* output
     DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
     DPU_ASSERT(dpu_get_nr_dpus(set, &nr_dpus));
 
-    setup_inputs(set, nr_dpus, input_0, input_1    , elem_count, global_0    );
+    setup_inputs(set, nr_dpus 
+, input_0, input_1    , elem_count, global_0);
 
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
     compute_final_result(set, nr_dpus, output);
 
     DPU_ASSERT(dpu_free(set));
     return 0;
-}
-
-void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
-    *out_ptr += *in_ptr;
-
 }

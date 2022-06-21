@@ -1,9 +1,8 @@
-
 #pragma once
 
 #include "common.h"
 
-int process(output_t* output\
+size_t process(output_t** output\
 % for i in range(0, len(in_stage["inputs"])):
 , const input_${ i }_t* input_${ i }\
 % endfor

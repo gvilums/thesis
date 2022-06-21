@@ -35,10 +35,10 @@ def compute_filter_info(config):
 
 def create_reduce_pipeline(data, lookup: TemplateLookup):
 
-    device_code_template = lookup.get_template("device.c")
-    common_header_template = lookup.get_template("common.h")
-    host_code_template = lookup.get_template("host.c")
-    host_header_template = lookup.get_template("host.h")
+    device_code_template = lookup.get_template("device_reduce.c")
+    common_header_template = lookup.get_template("common_reduce.h")
+    host_code_template = lookup.get_template("host_reduce.c")
+    host_header_template = lookup.get_template("host_reduce.h")
 
 
     compute_input_indices(data["stages"])
@@ -127,7 +127,7 @@ def normalize_config(config):
 
 
 def main():
-    lookup = TemplateLookup(directories=["templates"])
+    lookup = TemplateLookup(directories=["templates/base", "templates/reduce", "templates/noreduce"])
     config = read_config("inputs/example_input.toml")
 
     normalize_config(config)

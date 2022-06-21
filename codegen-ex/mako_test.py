@@ -128,7 +128,7 @@ def normalize_config(config):
 
 def main():
     lookup = TemplateLookup(directories=["templates/base", "templates/reduce", "templates/noreduce"])
-    config = read_config("inputs/example_input.toml")
+    config = read_config("inputs/vector_add.toml")
 
     normalize_config(config)
     config["pipeline"]["nr_tasklets"] = 16

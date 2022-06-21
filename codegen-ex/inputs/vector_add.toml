@@ -16,6 +16,12 @@ program = """
 """
 
 [[stages]]
+kind = "filter"
+program = """
+return 1;
+"""
+
+[[stages]]
 kind = "map"
 output = "uint64_t"
 program = """

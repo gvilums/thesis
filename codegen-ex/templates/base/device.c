@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 // host input globals
 uint32_t total_input_elems;
@@ -91,8 +92,6 @@ int main() {
         local_offset += remaining_elems;
     }
 
-    size_t reduction_idx = index % REDUCTION_VAR_COUNT;
-
 % for i in range(0, len(in_stage["inputs"])):
     seqreader_buffer_t local_cache_${ i } = seqread_alloc();
     seqreader_t sr_${ i };
@@ -104,3 +103,17 @@ int main() {
 <%block name="main_process"/>
     return 0;
 }
+
+<%def name="advance_readers()">
+% for i in range(0, len(in_stage["inputs"])):
+        current_read_${ i } = seqread_get(current_read_${ i }, sizeof(input_${ i }_t), &sr_${ i });
+% endfor
+</%def>
+
+<%def name="call_with_inputs(name, first)">\
+${ name }(${ first }\
+% for i in range(0, len(in_stage["inputs"])):
+, current_read_${ i }\
+% endfor
+);\
+</%def>

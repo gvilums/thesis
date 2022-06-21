@@ -1,6 +1,9 @@
 <%inherit file="device.c"/>
 
+
 <%block name="main_process">
+    size_t reduction_idx = index % REDUCTION_VAR_COUNT;
+
     // init local reduction variable
     if (index == reduction_idx) {
         memcpy(&reduction_vars[reduction_idx], &${ reduction["identity"] }, sizeof(${ reduction["identity"] }));
@@ -8,14 +11,8 @@
     barrier_wait(&reduction_init_barrier);
 
     for (size_t i = 0; i < input_elem_count; ++i) {
-        pipeline(reduction_idx\
-% for i in range(0, len(in_stage["inputs"])):
-, current_read_${ i }\
-% endfor
-);
-% for i in range(0, len(in_stage["inputs"])):
-        current_read_${ i } = seqread_get(current_read_${ i }, sizeof(input_${ i }_t), &sr_${ i });
-% endfor
+        ${ parent.call_with_inputs("pipeline", "reduction_idx") }
+        ${ parent.advance_readers() }
     }
 
     // only main tasklet performs final reduction

@@ -3,11 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define EXAMPLE_INPUT
+// #define EXAMPLE_INPUT
 // #define HISTOGRAM
 // #define FILTER_MULTIPLES
 // #define SUM_REDUCE
 // #define MAP_ONLY
+#define VECTOR_ADD
 
 #ifdef EXAMPLE_INPUT
 int main() {
@@ -92,5 +93,27 @@ int main() {
         }
     }
     puts("ok");
+}
+#endif
+
+#ifdef VECTOR_ADD
+int main() {
+    const size_t elem_count = 1000;
+    input_0_t* input_0 = malloc(sizeof(input_0_t) * elem_count);
+    input_1_t* input_1 = malloc(sizeof(input_1_t) * elem_count);
+    for (int i = 0; i < elem_count; ++i) {
+        input_0[i] = 1;
+        input_1[i] = 2;
+    }
+    output_t* output;
+    size_t count = process(&output, input_0, input_1, elem_count);
+    printf("result: %lu\n", count);
+    for (size_t i = 0; i < count; ++i) {
+        if (output[i] != 3) {
+            puts("error");
+            return 1;
+        }
+    }
+    return 0;
 }
 #endif

@@ -34,7 +34,9 @@ constant_${i}_t ${constant["name"]} = ${constant["init"]};
 % endfor
 
 // streaming data input
-__mram_noinit uint8_t element_input_buffer[INPUT_BUF_SIZE];
+% for i in range(len(in_stage["inputs"])):
+__mram_noinit uint8_t element_input_buffer_${ i }[INPUT_BUF_SIZE];
+% endfor
 __host uint8_t globals_input_buffer[GLOBALS_SIZE_ALIGNED];
 
 // data output
@@ -50,7 +52,11 @@ BARRIER_INIT(reduction_init_barrier, NR_TASKLETS);
 BARRIER_INIT(final_reduction_barrier, NR_TASKLETS);
 
 
-void pipeline(input_t* data_in, uint32_t reduction_idx);
+void pipeline(uint32_t reduction_idx\
+% for i in range(0, len(in_stage["inputs"])):
+    , input_${ i }_t* input_${ i }\
+% endfor
+);
 void setup_inputs();
 void setup_reduction(uint32_t reduction_idx);
 void reduce();
@@ -83,21 +89,30 @@ int main() {
     }
     barrier_wait(&reduction_init_barrier);
 
-    seqreader_buffer_t local_cache = seqread_alloc();
-    seqreader_t sr;
+% for i in range(0, len(in_stage["inputs"])):
+    seqreader_buffer_t local_cache_${ i } = seqread_alloc();
+    seqreader_t sr_${ i };
 
-    input_t* current_read = seqread_init(
-        local_cache, &element_input_buffer[local_offset * sizeof(input_t)], &sr);
+    input_${ i }_t* current_read_${ i } = seqread_init(
+        local_cache_${ i }, &element_input_buffer_${ i }[local_offset * sizeof(input_${ i }_t)], &sr_${ i });
+% endfor
 
     for (size_t i = 0; i < input_elem_count; ++i) {
-        pipeline(current_read, reduction_idx);
-        current_read = seqread_get(current_read, sizeof(input_t), &sr);
+        pipeline(reduction_idx\
+% for i in range(0, len(in_stage["inputs"])):
+, current_read_${ i }\
+% endfor
+);
+% for i in range(0, len(in_stage["inputs"])):
+        current_read_${ i } = seqread_get(current_read_${ i }, sizeof(input_${ i }_t), &sr_${ i });
+% endfor
     }
 
     // only main tasklet performs final reduction
     barrier_wait(&final_reduction_barrier);
     if (index == 0) {
         reduce();
+        puts("dpu ok");
     }
     return 0;
 }
@@ -114,14 +129,22 @@ void setup_inputs() {
 
 }
 
-% for i, stage in enumerate(stages):
+void pipeline_input(stage_0_out_t* out_ptr\
+% for i in range(0, len(in_stage["inputs"])):
+, const input_${ i }_t* in_ptr_${ i }\
+% endfor
+) {
+    ${ in_stage["program"] }
+}
+
+% for stage in stages:
     % if stage["kind"] == "map":
-void stage_${i}(const stage_${i}_in_t* in_ptr, stage_${i}_out_t* out_ptr) {
+void stage_${ stage["id"] }(const stage_${ stage["id"] }_in_t* in_ptr, stage_${ stage["id"] }_out_t* out_ptr) {
     ${ stage["program"] }\
 }
 
     % elif stage["kind"] == "filter":
-int stage_${i}(const stage_${i}_in_t* in_ptr) {
+int stage_${ stage["id"] }(const stage_${ stage["id"] }_in_t* in_ptr) {
     ${ stage["program"] }\
 }
 
@@ -140,28 +163,31 @@ void setup_reduction(uint32_t reduction_idx) {
     memcpy(&reduction_vars[reduction_idx], &${ reduction["identity"] }, sizeof(${ reduction["identity"] }));
 }
 
-void pipeline(input_t* data_in, uint32_t reduction_idx) {
-<%!
-    def input_name(stage):
-        input_idx = stage["input_idx"]
-        if input_idx == -1:
-            return "data_in"
-        else:
-            return f"&tmp_{input_idx}"
-%>
-% for i, stage in enumerate(stages):
+void pipeline(uint32_t reduction_idx\
+% for i in range(0, len(in_stage["inputs"])):
+, input_${ i }_t* input_${ i }\
+% endfor
+) {
+    stage_0_out_t tmp_0;
+% for stage in stages:
     % if stage["kind"] != "filter":
-    stage_${ i }_out_t tmp_${ i };
+    stage_${ stage["id"] }_out_t tmp_${ stage["id"] };
     % endif
 % endfor
 
-% for i, stage in enumerate(stages):
+    pipeline_input(&tmp_0\
+% for i in range(0, len(in_stage["inputs"])):
+, input_${ i }\
+% endfor
+);
+
+% for stage in stages:
     % if stage["kind"] == "map":
     // map
-    stage_${i}(${input_name(stage)}, &tmp_${i});
+    stage_${ stage["id"] }(&tmp_${ stage["input_idx"] }, &tmp_${ stage["id"] });
     % elif stage["kind"] == "filter":
     // filter
-    if (!stage_${i}(${input_name(stage)})) {
+    if (!stage_${ stage["id"] }(&tmp_${ stage["input_idx"] })) {
         return;
     }
     % endif
@@ -172,7 +198,7 @@ void pipeline(input_t* data_in, uint32_t reduction_idx) {
     mutex_lock(&reduction_mutexes[reduction_idx]);
 #endif
 
-    pipeline_reduce(&reduction_vars[reduction_idx], ${input_name(reduction)});
+    pipeline_reduce(&reduction_vars[reduction_idx], &tmp_${ reduction["input_idx"] });
 
 #ifdef SYNCHRONIZE_REDUCTION
     mutex_unlock(&reduction_mutexes[reduction_idx]);

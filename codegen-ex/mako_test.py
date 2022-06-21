@@ -15,6 +15,10 @@ def compute_input_indices(stages):
             last_stable = prev_idx
         stage["input_idx"] = last_stable
 
+def index_stages(stages):
+    for idx, stage in enumerate(stages):
+        stage["id"] = idx
+
 def compute_filter_info(config):
     contains_filter = False
     for stage in config["stages"]:
@@ -38,17 +42,19 @@ def create_reduce_pipeline(data, lookup: TemplateLookup):
 
 
     compute_input_indices(data["stages"])
+    index_stages(data["stages"])
 
     pipeline = data["pipeline"]
-    stages = data["stages"][:len(data["stages"]) - 1]
+    in_stage = data["stages"][0]
+    stages = data["stages"][1:len(data["stages"]) - 1]
     reduction = data["stages"][-1]
 
     pipeline["reduction_vars"] = 16
 
-    device_code = device_code_template.render(pipeline=pipeline, stages=stages, reduction=reduction)
-    common_header = common_header_template.render(pipeline=pipeline, stages=stages, reduction=reduction)
-    host_code = host_code_template.render(pipeline=pipeline, stages=stages, reduction=reduction)
-    host_header = host_header_template.render(pipeline=pipeline, stages=stages, reduction=reduction)
+    device_code = device_code_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
+    common_header = common_header_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
+    host_code = host_code_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
+    host_header = host_header_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
 
     with open('output/common.h', 'w') as out:
         out.write(common_header)
@@ -71,16 +77,18 @@ def create_noreduce_pipeline(data, lookup: TemplateLookup):
 
     data["stages"].append({"kind": "output"})
     compute_input_indices(data["stages"])
+    index_stages(data["stages"])
     compute_filter_info(data)
 
     pipeline = data["pipeline"]
-    stages = data["stages"][:len(data["stages"]) - 1]
+    in_stage = data["stages"][0]
+    stages = data["stages"][1:len(data["stages"]) - 1]
     output = data["stages"][-1]
 
-    device_code = device_code_template.render(pipeline=pipeline, stages=stages, output=output)
-    common_header = common_header_template.render(pipeline=pipeline, stages=stages, output=output)
-    host_code = host_code_template.render(pipeline=pipeline, stages=stages, output=output)
-    host_header = host_header_template.render(pipeline=pipeline, stages=stages, output=output)
+    device_code = device_code_template.render(pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
+    common_header = common_header_template.render(pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
+    host_code = host_code_template.render(pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
+    host_header = host_header_template.render(pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
 
     with open('output/common.h', 'w') as out:
         out.write(common_header)
@@ -96,8 +104,19 @@ def create_noreduce_pipeline(data, lookup: TemplateLookup):
 
 def normalize_config(config):
     assert "pipeline" in config
-    assert "stages" in config
     assert len(config["stages"]) > 0
+
+    assert "stages" in config
+    for i, stage in enumerate(config["stages"]):
+        assert "kind" in stage
+        if i == 0:
+            assert stage["kind"] == "input"
+            # assert "types" in stage
+            # assert isinstance(stage["types"], list[str])
+        else:
+            assert stage["kind"] in ["map", "filter", "reduce"]
+        if stage["kind"] == "reduce":
+            assert i == len(config["stages"]) - 1
 
     if "globals" not in config["pipeline"]:
         config["pipeline"]["globals"] = []
@@ -109,7 +128,7 @@ def normalize_config(config):
 
 def main():
     lookup = TemplateLookup(directories=["templates"])
-    config = read_config("inputs/map_only.toml")
+    config = read_config("inputs/example_input.toml")
 
     normalize_config(config)
     config["pipeline"]["nr_tasklets"] = 16

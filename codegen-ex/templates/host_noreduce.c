@@ -82,9 +82,6 @@ size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** o
         DPU_ASSERT(dpu_prepare_xfer(dpu, output_data_buffers[dpu_id])); 
     }
 
-    // DPU_FOREACH(set, dpu) {
-    //     DPU_ASSERT(dpu_log_read(dpu, stdout));
-    // }
 
     DPU_ASSERT(
         dpu_push_xfer(set, DPU_XFER_FROM_DPU, "element_output_buffer", 0, sizeof(output_t) * max_output_elems, DPU_XFER_DEFAULT));

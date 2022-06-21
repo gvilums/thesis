@@ -77,14 +77,6 @@ uint32_t current_output_offsets[NR_TASKLETS];
 <%block name="function_decl">
 void flush_outputs() {
     uint32_t i = me();
-
-    // copy data from local output buffer into correct location in global buffer
-    // mutex_lock(stdout_mutex);
-    // for (int j = 0; j < local_outbuf_sizes[i] / sizeof(output_t); ++j) {
-    //     printf("%x ", local_output_buffers[i][j * sizeof(output_t)]);
-    // }
-    // puts("");
-    // mutex_unlock(stdout_mutex);
     mram_write(&local_output_buffers[i][0], &element_output_buffer[current_output_offsets[i]], local_outbuf_sizes[i]);
     // advance offset by size of data we just copied
     current_output_offsets[i] += local_outbuf_sizes[i];

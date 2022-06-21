@@ -73,14 +73,6 @@ void stage_2(const stage_2_in_t* in_ptr, stage_2_out_t* out_ptr) {
 
 void flush_outputs() {
     uint32_t i = me();
-
-    // copy data from local output buffer into correct location in global buffer
-    // mutex_lock(stdout_mutex);
-    // for (int j = 0; j < local_outbuf_sizes[i] / sizeof(output_t); ++j) {
-    //     printf("%x ", local_output_buffers[i][j * sizeof(output_t)]);
-    // }
-    // puts("");
-    // mutex_unlock(stdout_mutex);
     mram_write(&local_output_buffers[i][0], &element_output_buffer[current_output_offsets[i]], local_outbuf_sizes[i]);
     // advance offset by size of data we just copied
     current_output_offsets[i] += local_outbuf_sizes[i];
@@ -167,14 +159,14 @@ int main() {
 
     seqreader_buffer_t local_cache_0 = seqread_alloc();
     seqreader_t sr_0;
-
     input_0_t* current_read_0 = seqread_init(
         local_cache_0, &element_input_buffer_0[local_offset * sizeof(input_0_t)], &sr_0);
+
     seqreader_buffer_t local_cache_1 = seqread_alloc();
     seqreader_t sr_1;
-
     input_1_t* current_read_1 = seqread_init(
         local_cache_1, &element_input_buffer_1[local_offset * sizeof(input_1_t)], &sr_1);
+
 
 
     output_elems[index] = 0;

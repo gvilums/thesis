@@ -9,6 +9,12 @@ constants = [
 ]
 
 [[stages]]
+kind = "input"
+inputs = [
+    "uint64_t"
+]
+
+[[stages]]
 kind = "reduce"
 identity = "zero"
 output = "uint32_t"

@@ -111,8 +111,10 @@ def normalize_config(config):
         assert "kind" in stage
         if i == 0:
             assert stage["kind"] == "input"
-            # assert "types" in stage
-            # assert isinstance(stage["types"], list[str])
+            assert "types" in stage
+            if "program" not in stage:
+                assert len(stage["types"]) == 1
+                stage["program"] = "memcpy(out_ptr, in_ptr, sizeof(*out_ptr);\n"
         else:
             assert stage["kind"] in ["map", "filter", "reduce"]
         if stage["kind"] == "reduce":

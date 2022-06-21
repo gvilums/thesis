@@ -95,11 +95,10 @@ int main() {
 % for i in range(0, len(in_stage["inputs"])):
     seqreader_buffer_t local_cache_${ i } = seqread_alloc();
     seqreader_t sr_${ i };
-
     input_${ i }_t* current_read_${ i } = seqread_init(
         local_cache_${ i }, &element_input_buffer_${ i }[local_offset * sizeof(input_${ i }_t)], &sr_${ i });
-% endfor
 
+% endfor
 <%block name="main_process"/>
     return 0;
 }

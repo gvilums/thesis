@@ -2,17 +2,13 @@
 
 [pipeline]
 name = "sum_reduce"
-input = "uint32_t"
-# declares variables which are global for all executions
 constants = [
     { name = "zero", type = "uint32_t", init = "0" },
 ]
 
 [[stages]]
 kind = "input"
-inputs = [
-    "uint64_t"
-]
+inputs = ["uint32_t"]
 
 [[stages]]
 kind = "reduce"

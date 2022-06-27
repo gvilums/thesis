@@ -1,7 +1,29 @@
 from mako.template import Template
 from mako.lookup import TemplateLookup
 import tomllib
+import sys
 import dataclasses
+
+@dataclasses.dataclass
+class CodegenOutput:
+    device_code: str
+    common_header: str
+    host_code: str
+    host_header: str
+
+    def output_to(self, output_dir: str):
+        with open(f'{output_dir}/common.h', 'w') as out:
+            out.write(self.common_header)
+
+        with open(f'{output_dir}/device.c', 'w') as out:
+            out.write(self.device_code)
+
+        with open(f'{output_dir}/host.c', 'w') as out:
+            out.write(self.host_code)
+
+        with open(f'{output_dir}/host.h', 'w') as out:
+            out.write(self.host_header)
+
 
 def read_config(filename: str):
     with open(filename, "rb") as f:
@@ -33,13 +55,12 @@ def compute_filter_info(config):
                 stage["last_filter"] = True
                 break
 
-def create_reduce_pipeline(data, lookup: TemplateLookup):
+def create_reduce_pipeline(data, lookup: TemplateLookup) -> CodegenOutput:
 
     device_code_template = lookup.get_template("device_reduce.c")
     common_header_template = lookup.get_template("common_reduce.h")
     host_code_template = lookup.get_template("host_reduce.c")
     host_header_template = lookup.get_template("host_reduce.h")
-
 
     compute_input_indices(data["stages"])
     index_stages(data["stages"])
@@ -56,20 +77,9 @@ def create_reduce_pipeline(data, lookup: TemplateLookup):
     host_code = host_code_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
     host_header = host_header_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
 
-    with open('output/common.h', 'w') as out:
-        out.write(common_header)
+    return CodegenOutput(device_code, common_header, host_code, host_header)
 
-    with open('output/device.c', 'w') as out:
-        out.write(device_code)
-
-    with open('output/host.c', 'w') as out:
-        out.write(host_code)
-
-    with open('output/host.h', 'w') as out:
-        out.write(host_header)
-
-
-def create_noreduce_pipeline(data, lookup: TemplateLookup):
+def create_noreduce_pipeline(data, lookup: TemplateLookup) -> CodegenOutput:
     device_code_template = lookup.get_template("device_noreduce.c")
     common_header_template = lookup.get_template("common_noreduce.h")
     host_code_template = lookup.get_template("host_noreduce.c")
@@ -90,17 +100,7 @@ def create_noreduce_pipeline(data, lookup: TemplateLookup):
     host_code = host_code_template.render(pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
     host_header = host_header_template.render(pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
 
-    with open('output/common.h', 'w') as out:
-        out.write(common_header)
-
-    with open('output/device.c', 'w') as out:
-        out.write(device_code)
-
-    with open('output/host.c', 'w') as out:
-        out.write(host_code)
-
-    with open('output/host.h', 'w') as out:
-        out.write(host_header)
+    return CodegenOutput(device_code, common_header, host_code, host_header)
 
 def normalize_config(config):
     assert "pipeline" in config
@@ -111,10 +111,13 @@ def normalize_config(config):
         assert "kind" in stage
         if i == 0:
             assert stage["kind"] == "input"
-            assert "types" in stage
+            assert "inputs" in stage
             if "program" not in stage:
-                assert len(stage["types"]) == 1
-                stage["program"] = "memcpy(out_ptr, in_ptr, sizeof(*out_ptr);\n"
+                assert len(stage["inputs"]) == 1
+                stage["program"] = "memcpy(out_ptr, in_ptr_0, sizeof(*out_ptr));\n"
+            if "output" not in stage:
+                assert len(stage["inputs"]) == 1
+                stage["output"] = stage["inputs"][0]
         else:
             assert stage["kind"] in ["map", "filter", "reduce"]
         if stage["kind"] == "reduce":
@@ -129,16 +132,24 @@ def normalize_config(config):
 
 
 def main():
+    if len(sys.argv) != 3:
+        print(f"usage: {sys.argv[0]} <configuration file> <output directory>")
+        return
+    config_name = sys.argv[1]
+    output_dir = sys.argv[2]
     lookup = TemplateLookup(directories=["templates/base", "templates/reduce", "templates/noreduce"])
-    config = read_config("inputs/vector_add.toml")
+
+    config = read_config(config_name)
 
     normalize_config(config)
     config["pipeline"]["nr_tasklets"] = 16
 
     if config["stages"][-1]["kind"] == "reduce":
-        create_reduce_pipeline(config, lookup)
+        code = create_reduce_pipeline(config, lookup)
     else:
-        create_noreduce_pipeline(config, lookup)
+        code = create_noreduce_pipeline(config, lookup)
+    
+    code.output_to(output_dir)
 
 
 if __name__ == "__main__":

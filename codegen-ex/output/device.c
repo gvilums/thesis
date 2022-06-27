@@ -61,11 +61,7 @@ void pipeline_input(stage_0_out_t* out_ptr, const input_0_t* in_ptr_0, const inp
 
 }
 
-int stage_1(const stage_1_in_t* in_ptr) {
-    return 1;
-}
-
-void stage_2(const stage_2_in_t* in_ptr, stage_2_out_t* out_ptr) {
+void stage_1(const stage_1_in_t* in_ptr, stage_1_out_t* out_ptr) {
     *out_ptr = (*in_ptr)[0] + (*in_ptr)[1];
 }
 
@@ -105,35 +101,18 @@ void init_output_writer(size_t element_offset) {
 
 int pipeline(output_t* data_out, input_0_t* input_0, input_1_t* input_1) {
     stage_0_out_t tmp_0;
-    stage_2_out_t tmp_2;
+    stage_1_out_t tmp_1;
 
     pipeline_input(&tmp_0, input_0, input_1);
 
-    // filter
-    if (!stage_1(&tmp_0)) {
-        return 0;
-    }
     // map
-    stage_2(&tmp_0, &tmp_2);
+    stage_1(&tmp_0, &tmp_1);
 
-    memcpy(data_out, &tmp_2, sizeof(output_t));
+    memcpy(data_out, &tmp_1, sizeof(output_t));
     return 1;
 }
 
 
-int pipeline_eval_condition(size_t dummy, input_0_t* input_0, input_1_t* input_1) {
-    stage_0_out_t tmp_0;
-    stage_2_out_t tmp_2;
-
-    pipeline_input(&tmp_0, input_0, input_1);
-
-    // filter
-    if (!stage_1(&tmp_0)) {
-        return 0;
-    }
-
-    return 1;
-}
 
 
 
@@ -168,15 +147,7 @@ int main() {
         local_cache_1, &element_input_buffer_1[local_offset * sizeof(input_1_t)], &sr_1);
 
 
-
-    output_elems[index] = 0;
-    for (size_t i = 0; i < input_elem_count; ++i) {
-        output_elems[index] += pipeline_eval_condition(0, current_read_0, current_read_1);
-        
-        current_read_0 = seqread_get(current_read_0, sizeof(input_0_t), &sr_0);
-        current_read_1 = seqread_get(current_read_1, sizeof(input_1_t), &sr_1);
-
-    }
+    output_elems[index] = input_elem_count;
 
     barrier_wait(&output_offset_compute);
 

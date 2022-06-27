@@ -2,23 +2,17 @@
 
 [pipeline]
 name = "filer_multiples"
-input = "uint64_t"
 globals = [
     { name = "factor", type = "uint32_t" }
 ]
-# declares variables which are global for all executions
+
+[[stages]]
+kind = "input"
+inputs = ["uint64_t"]
 
 [[stages]]
 # filters data elements by a predicate
 kind = "filter"
 program = """
 return *in_ptr % factor == 0;
-""" 
-
-[[stages]]
-# filters data elements by a predicate
-kind = "map"
-output = "uint64_t"
-program = """
-*out_ptr = *in_ptr;
 """ 

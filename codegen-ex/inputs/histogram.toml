@@ -2,11 +2,13 @@
 
 [pipeline]
 name = "histogram_small"
-input = "uint8_t"
-# declares variables which are global for all executions
 constants = [
     { name = "empty_array", type = "uint32_t[256]", init = "{}" },
 ]
+
+[[stages]]
+kind = "input"
+inputs = ["uint8_t"]
 
 [[stages]]
 kind = "reduce"

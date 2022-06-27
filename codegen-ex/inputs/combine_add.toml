@@ -1,10 +1,10 @@
 # An example pipeline to be compiled for execution using UPMEM
 
 [pipeline]
-name = "string_process"
+name = "combine_add"
 # declares variables which are global for all executions
 globals = [
-    { name = "global_val", type = "uint32_t" }
+    { name = "const_offset", type = "uint32_t" }
 ]
 constants = [
     { name = "zero", type = "uint32_t", init = "0" },
@@ -28,22 +28,8 @@ program = """
 kind = "map"
 output = "uint32_t" 
 program = """
-*out_ptr = (*in_ptr)[0] + (*in_ptr)[1] + global_val;
+*out_ptr = (*in_ptr)[0] + (*in_ptr)[1] + const_offset;
 """ 
-
-# [[stages]]
-# # filters data elements by a predicate
-# kind = "filter"
-# program = """
-# return *in_ptr == 4;
-# """ 
-
-# [[stages]]
-# kind = "map"
-# program = """
-# *out_ptr = *in_ptr;
-# """
-
 
 [[stages]]
 kind = "reduce"

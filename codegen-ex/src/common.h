@@ -3,7 +3,7 @@
 // configuration parameters begin
 
 #define INPUT_BUF_SIZE (1 << 16)
-#define REDUCTION_VAR_COUNT 16
+#define NR_REDUCTION_VARS 16
 /*
 #define NR_TASKLETS 16
 */

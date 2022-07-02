@@ -13,6 +13,7 @@ def main():
     if len(sys.argv) != 3:
         print(f"usage: {sys.argv[0]} <configuration file> <output directory>")
         return
+
     config_name = sys.argv[1]
     output_dir = sys.argv[2]
     lookup = TemplateLookup(directories=["templates/base", "templates/reduce", "templates/noreduce", "templates/util"])
@@ -78,23 +79,23 @@ class SizeInformation:
 class ReduceConfigParams:
     nr_tasklets: int
     nr_reduction_vars: int
-    read_buf_size: int
+    read_cache_size: int
 
     def apply_to(self, config):
         config["pipeline"]["nr_tasklets"] = self.nr_tasklets
         config["pipeline"]["reduction_vars"] = self.nr_reduction_vars
-        config["pipeline"]["read_buf_size"] = self.read_buf_size
+        config["pipeline"]["read_cache_size"] = self.read_cache_size
 
 
 @dataclasses.dataclass
 class NoreduceConfigParams:
     nr_tasklets: int
-    read_buf_size: int
+    read_cache_size: int
     write_buf_size: int
 
     def apply_to(self, config):
         config["pipeline"]["nr_tasklets"] = self.nr_tasklets
-        config["pipeline"]["read_buf_size"] = self.read_buf_size
+        config["pipeline"]["read_cache_size"] = self.read_cache_size
         config["pipeline"]["write_buf_size"] = self.write_buf_size
 
 
@@ -208,7 +209,7 @@ def normalize_config(config):
     # default parameters for initial codegen
     config["pipeline"]["nr_tasklets"] = 11
     config["pipeline"]["reduction_vars"] = 11
-    config["pipeline"]["read_buf_size"] = 512
+    config["pipeline"]["read_cache_size"] = 512
     config["pipeline"]["write_buf_size"] = 512
     
     # various indexing operations required for codegen
@@ -245,7 +246,7 @@ def compute_size_info(config, lookup: TemplateLookup, code: CodegenOutput) -> Si
 
 
 def optimize_reduce_params(sizes: SizeInformation) -> ReduceConfigParams:
-    if max(sizes.input_sizes) > 2048:
+    if max(sizes.input_sizes) > 1024:
         raise "input element too large"
 
     num_inputs = len(sizes.input_sizes)
@@ -254,7 +255,7 @@ def optimize_reduce_params(sizes: SizeInformation) -> ReduceConfigParams:
     base_size -= sum(sizes.global_sizes) + sum(sizes.constant_sizes)
 
     input_buf_size = (base_size / 11 - sizes.stack_size - sizes.output_size) / num_inputs
-    input_buf_size = min(pow(2, math.floor(math.log2(input_buf_size))), 2048)
+    input_buf_size = min(pow(2, math.floor(math.log2(input_buf_size))), 1024)
 
     # check if valid 
     if input_buf_size >= 32 and all(map(lambda x: x <= input_buf_size, sizes.input_sizes)):
@@ -274,7 +275,7 @@ def optimize_reduce_params(sizes: SizeInformation) -> ReduceConfigParams:
 
 
 def optimize_noreduce_params(sizes: SizeInformation) -> NoreduceConfigParams:
-    if max(sizes.input_sizes) > 2048:
+    if max(sizes.input_sizes) > 1024:
         raise "input element too large"
 
     num_inputs = len(sizes.input_sizes)
@@ -283,7 +284,7 @@ def optimize_noreduce_params(sizes: SizeInformation) -> NoreduceConfigParams:
     base_size -= sum(sizes.global_sizes) + sum(sizes.constant_sizes)
 
     buf_size = (base_size / 11 - sizes.stack_size) / (num_inputs + 1)
-    buf_size = min(pow(2, math.floor(math.log2(buf_size))), 2048)
+    buf_size = min(pow(2, math.floor(math.log2(buf_size))), 1024)
 
     if buf_size >= 32 and all(map(lambda x: x <= buf_size, sizes.input_sizes + [sizes.output_size])):
         return NoreduceConfigParams(11, buf_size, buf_size)

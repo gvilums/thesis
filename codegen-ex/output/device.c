@@ -34,14 +34,10 @@ __host elem_count_t total_output_elems;
 BARRIER_INIT(setup_barrier, NR_TASKLETS);
 BARRIER_INIT(output_offset_compute, NR_TASKLETS);
 
-// output handling
-#define MRAM_ALIGN 8
-#define LOCAL_OUTBUF_SIZE (1 << 8)
-
 // element count for each tasklet
 uint32_t output_elems[NR_TASKLETS];
 
-__dma_aligned uint8_t local_output_buffers[NR_TASKLETS][LOCAL_OUTBUF_SIZE];
+__dma_aligned uint8_t local_output_buffers[NR_TASKLETS][WRITE_CACHE_SIZE];
 uint32_t local_outbuf_sizes[NR_TASKLETS];
 uint32_t current_output_offsets[NR_TASKLETS];
 
@@ -80,7 +76,7 @@ output_t* get_output_place() {
     uint32_t i = me();
 
     // if adding another value of type output_t would overflow the buffer, flush
-    if (local_outbuf_sizes[i] + sizeof(output_t) > LOCAL_OUTBUF_SIZE) {
+    if (local_outbuf_sizes[i] + sizeof(output_t) > WRITE_CACHE_SIZE) {
         flush_outputs();
     }
 

@@ -2,7 +2,7 @@
 
 
 <%block name="main_process">
-    size_t reduction_idx = index % REDUCTION_VAR_COUNT;
+    size_t reduction_idx = index % NR_REDUCTION_VARS;
 
     // init local reduction variable
     if (index == reduction_idx) {
@@ -24,15 +24,15 @@
 </%block>
 
 <%block name="global_decl">
-#if REDUCTION_VAR_COUNT < NR_TASKLETS
+#if NR_REDUCTION_VARS < NR_TASKLETS
 #define SYNCHRONIZE_REDUCTION
-#elif REDUCTION_VAR_COUNT > NR_TASKLETS
+#elif NR_REDUCTION_VARS > NR_TASKLETS
 #error Cannot have more reduction variables than tasklets
 #endif
 
 // reduction values and helpers
-__host reduction_out_t reduction_vars[REDUCTION_VAR_COUNT];
-__atomic_bit uint8_t reduction_mutexes[REDUCTION_VAR_COUNT];
+__host reduction_out_t reduction_vars[NR_REDUCTION_VARS];
+__atomic_bit uint8_t reduction_mutexes[NR_REDUCTION_VARS];
 
 // various barriers
 BARRIER_INIT(setup_barrier, NR_TASKLETS);
@@ -50,7 +50,7 @@ void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_
 }
 
 void reduce() {
-    for (size_t i = 1; i < REDUCTION_VAR_COUNT; ++i) {
+    for (size_t i = 1; i < NR_REDUCTION_VARS; ++i) {
         pipeline_reduce_combine(&reduction_vars[0], &reduction_vars[i]);
     }
 }

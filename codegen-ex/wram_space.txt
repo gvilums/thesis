@@ -2,7 +2,7 @@ stacks:
 #tasklets * max_stack_size
 
 read buffers:
-#tasklets * #inputs * read_buf_size
+#tasklets * #inputs * read_cache_size
 
 global data (globals + constants):
 SUM sizeof(global_i) + SUM sizeof(constant_i)

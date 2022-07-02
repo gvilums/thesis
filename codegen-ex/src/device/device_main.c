@@ -10,9 +10,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#if REDUCTION_VAR_COUNT < NR_TASKLETS
+#if NR_REDUCTION_VARS < NR_TASKLETS
 #define SYNCHRONIZE_REDUCTION
-#elif REDUCTION_VAR_COUNT > NR_TASKLETS
+#elif NR_REDUCTION_VARS > NR_TASKLETS
 #error Cannot have more reduction variables than tasklets
 #endif
 
@@ -32,8 +32,8 @@ __mram_noinit uint8_t globals_input_buffer[GLOBALS_SIZE_ALIGNED];
 __host reduction_out_t reduction_output;
 
 // reduction values and helpers
-reduction_out_t reduction_vars[REDUCTION_VAR_COUNT];
-__atomic_bit uint8_t reduction_mutexes[REDUCTION_VAR_COUNT];
+reduction_out_t reduction_vars[NR_REDUCTION_VARS];
+__atomic_bit uint8_t reduction_mutexes[NR_REDUCTION_VARS];
 
 // various barriers
 BARRIER_INIT(setup_barrier, NR_TASKLETS);
@@ -65,7 +65,7 @@ int main() {
         local_offset += remaining_elems;
     }
 
-    size_t reduction_idx = index % REDUCTION_VAR_COUNT;
+    size_t reduction_idx = index % NR_REDUCTION_VARS;
 
     // init local reduction variable
     if (index == reduction_idx) {
@@ -191,7 +191,7 @@ void setup_inputs() {
 
 void reduce() {
     memcpy(&reduction_output, &reduction_vars[0], sizeof(reduction_vars[0]));
-    for (size_t i = 1; i < REDUCTION_VAR_COUNT; ++i) {
+    for (size_t i = 1; i < NR_REDUCTION_VARS; ++i) {
         pipeline_reduce_combine(&reduction_output, &reduction_vars[i]);
     }
 }

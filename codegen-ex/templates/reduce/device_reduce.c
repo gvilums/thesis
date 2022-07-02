@@ -30,11 +30,8 @@
 #error Cannot have more reduction variables than tasklets
 #endif
 
-// data output
-__host reduction_out_t reduction_output;
-
 // reduction values and helpers
-reduction_out_t reduction_vars[REDUCTION_VAR_COUNT];
+__host reduction_out_t reduction_vars[REDUCTION_VAR_COUNT];
 __atomic_bit uint8_t reduction_mutexes[REDUCTION_VAR_COUNT];
 
 // various barriers
@@ -53,9 +50,8 @@ void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_
 }
 
 void reduce() {
-    memcpy(&reduction_output, &reduction_vars[0], sizeof(reduction_vars[0]));
     for (size_t i = 1; i < REDUCTION_VAR_COUNT; ++i) {
-        pipeline_reduce_combine(&reduction_output, &reduction_vars[i]);
+        pipeline_reduce_combine(&reduction_vars[0], &reduction_vars[i]);
     }
 }
 

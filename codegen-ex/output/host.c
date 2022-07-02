@@ -14,8 +14,7 @@
 
 
 
-void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus 
-, const input_0_t* input_0, const input_1_t* input_1, size_t elem_count) {
+void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus , const input_0_t* input_0, const input_1_t* input_1, size_t elem_count) {
     struct dpu_set_t dpu;
     uint32_t dpu_id;
 
@@ -118,8 +117,7 @@ size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** o
 
 
 
-size_t process(output_t** output 
-, const input_0_t* input_0, const input_1_t* input_1, size_t elem_count) {
+size_t process(output_t** output , const input_0_t* input_0, const input_1_t* input_1, size_t elem_count) {
     struct dpu_set_t set, dpu;
     uint32_t nr_dpus;
 
@@ -127,8 +125,7 @@ size_t process(output_t** output
     DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
     DPU_ASSERT(dpu_get_nr_dpus(set, &nr_dpus));
 
-    setup_inputs(set, nr_dpus 
-, input_0, input_1    , elem_count);
+    setup_inputs(set, nr_dpus , input_0, input_1    , elem_count);
 
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
     size_t output_elems = compute_final_result(set, nr_dpus, output);

@@ -7,7 +7,7 @@
 
 #define DPU_BINARY "device"
 
-<%def name="param_decl()">
+<%def name="param_decl()">\
 % for i in range(0, len(in_stage["inputs"])):
 , const input_${ i }_t* input_${ i }\
 % endfor
@@ -17,7 +17,7 @@
 % endfor
 </%def>
 
-<%def name="param_use()">
+<%def name="param_use()">\
 % for i in range(0, len(in_stage["inputs"])):
 , input_${ i }\
 % endfor

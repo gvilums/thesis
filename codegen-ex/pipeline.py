@@ -3,6 +3,9 @@ from mako.lookup import TemplateLookup
 import tomllib
 import sys
 import dataclasses
+import subprocess
+import re
+import tempfile
 
 @dataclasses.dataclass
 class CodegenOutput:
@@ -24,6 +27,11 @@ class CodegenOutput:
         with open(f'{output_dir}/host.h', 'w') as out:
             out.write(self.host_header)
 
+@dataclasses.dataclass
+class SizeInformation:
+    stack_size: int
+    input_sizes: list[int]
+    output_size: int
 
 def read_config(filename: str):
     with open(filename, "rb") as f:
@@ -112,6 +120,7 @@ def normalize_config(config):
         if i == 0:
             assert stage["kind"] == "input"
             assert "inputs" in stage
+            assert len(stage["inputs"]) >= 1
             if "program" not in stage:
                 assert len(stage["inputs"]) == 1
                 stage["program"] = "memcpy(out_ptr, in_ptr_0, sizeof(*out_ptr));\n"
@@ -137,7 +146,7 @@ def main():
         return
     config_name = sys.argv[1]
     output_dir = sys.argv[2]
-    lookup = TemplateLookup(directories=["templates/base", "templates/reduce", "templates/noreduce"])
+    lookup = TemplateLookup(directories=["templates/base", "templates/reduce", "templates/noreduce", "templates/util"])
 
     config = read_config(config_name)
 
@@ -145,11 +154,36 @@ def main():
     config["pipeline"]["nr_tasklets"] = 16
 
     if config["stages"][-1]["kind"] == "reduce":
-        code = create_reduce_pipeline(config, lookup)
+        base_code = create_reduce_pipeline(config, lookup)
     else:
-        code = create_noreduce_pipeline(config, lookup)
+        base_code = create_noreduce_pipeline(config, lookup)
+
+    size_info = compute_size_info(config, lookup, base_code)
+    print(size_info)
     
-    code.output_to(output_dir)
+    base_code.output_to(output_dir)
+
+
+def compute_size_info(config, lookup: TemplateLookup, code: CodegenOutput) -> SizeInformation:
+    size_info_template = lookup.get_template("size_info.c")
+    num_inputs = len(config["stages"][0]["inputs"])
+    with tempfile.TemporaryDirectory() as tmpdir:
+        code.output_to(tmpdir)
+        with open(f"{tmpdir}/size_info.c", "w") as f:
+            f.write(size_info_template.render(num_inputs=num_inputs))
+
+        subprocess.run(["dpu-upmem-dpurte-clang", "-DSTACK_SIZE_DEFAULT=1024", "-DNR_TASKLETS=16", "-g", "-O2", f"{tmpdir}/device.c", "-o", f"{tmpdir}/device"], check=True)
+        stack_analysis_output = subprocess.run(["dpu_stack_analyzer", f"{tmpdir}/device"], capture_output=True).stdout.decode("utf8")
+        stack_size_re_res = re.search(r"Max size: (\d+)\n", stack_analysis_output)
+        stack_size = int(stack_size_re_res.group(1))
+
+        subprocess.run(["gcc", f"{tmpdir}/size_info.c", "-o", f"{tmpdir}/size_info"], check=True)
+        size_info_output = subprocess.run([f"{tmpdir}/size_info"], capture_output=True).stdout.decode("utf8").split()
+        assert len(size_info_output) == num_inputs + 1
+        input_sizes = list(map(int, size_info_output[:-1]))
+        output_size = int(size_info_output[-1])
+
+        return SizeInformation(stack_size, input_sizes, output_size)
 
 
 if __name__ == "__main__":

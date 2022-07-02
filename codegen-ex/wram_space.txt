@@ -1,0 +1,33 @@
+stacks:
+#tasklets * max_stack_size
+
+read buffers:
+#tasklets * #inputs * read_buf_size
+
+
+REDUCTION:
+reduction vars:
+#red_vars * sizeof(reduction_out_t)
+
+NO_REDUCTION:
+write buffers:
+#tasklets * LOCAL_OUTBUF_SIZE
+
+
+various control globals:
+- element counts
+- buffer offsets
+- output sizes
+probably not much more than around 256 bytes in total
+
+what about dynamic alloc machinery? in theory, we would like to completely
+avoid it (and just not pay for it)
+
+In general, read and write buffers can not be larger than 2048 bytes
+
+
+
+First, focus on REDUCTION:
+What should the sequence of decisions look like?
+1. Start with 16 tasklets, compute remaining size under this assumption
+2. Assume some minimum size for the input buffers (which should be large enough to hold)

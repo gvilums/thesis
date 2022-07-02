@@ -4,6 +4,9 @@ stacks:
 read buffers:
 #tasklets * #inputs * read_buf_size
 
+global data (globals + constants):
+SUM sizeof(global_i) + SUM sizeof(constant_i)
+
 
 REDUCTION:
 reduction vars:
@@ -30,4 +33,4 @@ In general, read and write buffers can not be larger than 2048 bytes
 First, focus on REDUCTION:
 What should the sequence of decisions look like?
 1. Start with 16 tasklets, compute remaining size under this assumption
-2. Assume some minimum size for the input buffers (which should be large enough to hold)
+2. Assume some minimum size for the input buffers (which should be large enough to hold at least one input element)

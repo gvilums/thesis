@@ -1,9 +1,11 @@
 #!/usr/bin/fish
 
 function run_test
+    echo
+    echo "testing " $argv[1]
     /usr/bin/python3.11 ./pipeline.py $argv[1] output
-    dpu-upmem-dpurte-clang -DSTACK_SIZE_DEFAULT=1024 -DNR_TASKLETS=16 -g -O ./output/device.c -o ./build/device
-    gcc -D(string upper (basename -s .toml $argv[1])) -g -I/usr/local/upmem/include/dpu -L/usr/local/upmem/lib -ldpu ./output/host.c ./output/main.c -o ./build/host
+    gcc -D(string upper (basename -s .toml $argv[1])) -g -I/usr/local/upmem/include/dpu -I./output -L/usr/local/upmem/lib -ldpu ./output/host.c ./test/main.c -o ./build/host
+    cp ./output/device ./build/device
     cd build
     ./host
     cd ..

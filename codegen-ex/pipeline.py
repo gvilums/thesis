@@ -17,8 +17,7 @@ def main():
 
     config_name = sys.argv[1]
     output_dir = sys.argv[2]
-    lookup = TemplateLookup(directories=[
-                            "templates/base", "templates/reduce", "templates/noreduce", "templates/util"])
+    lookup = TemplateLookup(directories=["templates/base", "templates/reduce", "templates/noreduce", "templates/util"])
 
     config = read_config(config_name)
 
@@ -95,12 +94,12 @@ class ReduceConfigParams:
 class NoreduceConfigParams:
     nr_tasklets: int
     read_cache_size: int
-    write_buf_size: int
+    write_cache_size: int
 
     def apply_to(self, config):
         config["pipeline"]["nr_tasklets"] = self.nr_tasklets
         config["pipeline"]["read_cache_size"] = self.read_cache_size
-        config["pipeline"]["write_buf_size"] = self.write_buf_size
+        config["pipeline"]["write_cache_size"] = self.write_cache_size
 
 
 def read_config(filename: str):
@@ -149,14 +148,10 @@ def create_reduce_pipeline(config, lookup: TemplateLookup) -> CodegenOutput:
     stages = config["stages"][1:len(config["stages"]) - 1]
     reduction = config["stages"][-1]
 
-    device_code = device_code_template.render(
-        pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
-    common_header = common_header_template.render(
-        pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
-    host_code = host_code_template.render(
-        pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
-    host_header = host_header_template.render(
-        pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
+    device_code = device_code_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
+    common_header = common_header_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
+    host_code = host_code_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
+    host_header = host_header_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
 
     return CodegenOutput(device_code, common_header, host_code, host_header)
 
@@ -172,14 +167,10 @@ def create_noreduce_pipeline(config, lookup: TemplateLookup) -> CodegenOutput:
     stages = config["stages"][1:len(config["stages"]) - 1]
     output = config["stages"][-1]
 
-    device_code = device_code_template.render(
-        pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
-    common_header = common_header_template.render(
-        pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
-    host_code = host_code_template.render(
-        pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
-    host_header = host_header_template.render(
-        pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
+    device_code = device_code_template.render(pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
+    common_header = common_header_template.render(pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
+    host_code = host_code_template.render(pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
+    host_header = host_header_template.render(pipeline=pipeline, stages=stages, output=output, in_stage=in_stage)
 
     return CodegenOutput(device_code, common_header, host_code, host_header)
 
@@ -222,7 +213,7 @@ def normalize_config(config):
     config["pipeline"]["nr_tasklets"] = 11
     config["pipeline"]["reduction_vars"] = 11
     config["pipeline"]["read_cache_size"] = 512
-    config["pipeline"]["write_buf_size"] = 512
+    config["pipeline"]["write_cache_size"] = 512
 
     # various indexing operations required for codegen
     compute_input_indices(config["stages"])
@@ -245,22 +236,16 @@ def compute_size_info(config, lookup: TemplateLookup, code: CodegenOutput) -> Si
                        "-g", "-O2", f"{tmpdir}/device.c", "-o", f"{tmpdir}/device"], check=True)
         stack_analysis_output = subprocess.run(
             ["dpu_stack_analyzer", f"{tmpdir}/device"], capture_output=True).stdout.decode("utf8")
-        stack_size_re_res = re.search(
-            r"Max size: (\d+)\n", stack_analysis_output)
+        stack_size_re_res = re.search(r"Max size: (\d+)\n", stack_analysis_output)
         # align stack size to 8 bytes
         stack_size = ((int(stack_size_re_res.group(1)) - 1) | 7) + 1
 
-        subprocess.run(["gcc", f"{tmpdir}/size_info.c",
-                       "-o", f"{tmpdir}/size_info"], check=True)
-        size_info_output = subprocess.run(
-            [f"{tmpdir}/size_info"], capture_output=True).stdout.decode("utf8").split()
-        assert len(size_info_output) == num_globals + \
-            num_constants + num_inputs + 1
+        subprocess.run(["gcc", f"{tmpdir}/size_info.c", "-o", f"{tmpdir}/size_info"], check=True)
+        size_info_output = subprocess.run([f"{tmpdir}/size_info"], capture_output=True).stdout.decode("utf8").split()
+        assert len(size_info_output) == num_globals + num_constants + num_inputs + 1
         global_sizes = list(map(int, size_info_output[0:num_globals]))
-        constant_sizes = list(
-            map(int, size_info_output[num_globals:(num_globals + num_constants)]))
-        input_sizes = list(
-            map(int, size_info_output[(num_globals + num_constants):-1]))
+        constant_sizes = list(map(int, size_info_output[num_globals:(num_globals + num_constants)]))
+        input_sizes = list(map(int, size_info_output[(num_globals + num_constants):-1]))
         output_size = int(size_info_output[-1])
 
         return SizeInformation(stack_size, global_sizes, constant_sizes, input_sizes, output_size)
@@ -284,6 +269,9 @@ def optimize_reduce_params(sizes: SizeInformation) -> ReduceConfigParams:
         return ReduceConfigParams(11, 11, input_buf_size)
 
     # decide between (T == 11 and R < T) or (T == R and T < 11)
+    # this choice should be based on the relative size difference between reduction variables
+    # and minimum input buffer sizes
+
     # for now, assume that we want to stay at T == 11. Reduce R instead
 
     # reasonable choice for input buf size: enough to fit any input, but not smaller than 256

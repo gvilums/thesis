@@ -14,7 +14,7 @@ typedef ${base} ${name}${bracket + rest};\
 
 #define NR_REDUCTION_VARS ${ pipeline["reduction_vars"] }
 #define READ_CACHE_SIZE ${ pipeline["read_cache_size"] }
-#define WRITE_CACHE_SIZE ${ pipeline["write_buf_size"] }
+#define WRITE_CACHE_SIZE ${ pipeline["write_cache_size"] }
 
 typedef uint32_t elem_count_t;
 
@@ -56,4 +56,4 @@ ${ create_typedef(f"stage_{ stage['id'] }_out_t", f"stage_{ stage['id'] }_in_t")
 #define GLOBALS_SIZE_ALIGNED (((GLOBALS_SIZE - 1) | 7) + 1)
 
 
-// #define SEQREAD_CACHE_SIZE READ_CACHE_SIZE
+#define SEQREAD_CACHE_SIZE READ_CACHE_SIZE

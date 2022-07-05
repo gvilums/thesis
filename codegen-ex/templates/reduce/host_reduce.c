@@ -32,7 +32,12 @@ int process(output_t* output ${ parent.param_decl() }) {
     struct dpu_set_t set, dpu;
     uint32_t nr_dpus;
 
+#ifdef SIMULATOR
+    DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, "backend=simulator", &set));
+#else
     DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, NULL, &set));
+#endif
+
     DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
     DPU_ASSERT(dpu_get_nr_dpus(set, &nr_dpus));
 

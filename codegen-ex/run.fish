@@ -7,7 +7,7 @@ function run_test
     gcc -D(string upper (basename -s .toml $argv[1])) -g -I/usr/local/upmem/include/dpu -I./output -L/usr/local/upmem/lib -ldpu ./output/host.c ./test/main.c -o ./build/host
     cp ./output/device ./build/device
     cd build
-    ./host
+    ./host 2> /dev/null
     cd ..
 end
 

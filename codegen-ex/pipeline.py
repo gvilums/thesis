@@ -37,8 +37,8 @@ def main():
     else:
         params = optimize_noreduce_params(size_info)
 
-    print(params)
-    print(size_info)
+    # print(params)
+    # print(size_info)
 
     params.apply_to(config)
 

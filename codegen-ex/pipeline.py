@@ -211,7 +211,7 @@ def normalize_config(config):
 
     # default parameters for initial codegen
     config["pipeline"]["nr_tasklets"] = 11
-    config["pipeline"]["reduction_vars"] = 11
+    config["pipeline"]["reduction_vars"] = 1 # conservatively assume just one reduction variable
     config["pipeline"]["read_cache_size"] = 512
     config["pipeline"]["write_cache_size"] = 512
 
@@ -232,7 +232,7 @@ def compute_size_info(config, lookup: TemplateLookup, code: CodegenOutput) -> Si
             f.write(size_info_template.render(num_inputs=num_inputs,
                     num_globals=num_globals, num_constants=num_constants))
 
-        subprocess.run(["dpu-upmem-dpurte-clang", "-DSTACK_SIZE_DEFAULT=1024", "-DNR_TASKLETS=16",
+        subprocess.run(["dpu-upmem-dpurte-clang", "-DSTACK_SIZE_DEFAULT=256", "-DNR_TASKLETS=16",
                        "-g", "-O2", f"{tmpdir}/device.c", "-o", f"{tmpdir}/device"], check=True)
         stack_analysis_output = subprocess.run(
             ["dpu_stack_analyzer", f"{tmpdir}/device"], capture_output=True).stdout.decode("utf8")
@@ -258,15 +258,20 @@ def optimize_reduce_params(sizes: SizeInformation) -> ReduceConfigParams:
     num_inputs = len(sizes.input_sizes)
 
     base_size = pow(2, 16)  # default WRAM size is 64KB == 2^16 B
-    base_size -= sum(sizes.global_sizes) + sum(sizes.constant_sizes)
+    base_size -= sum(sizes.global_sizes) + sum(sizes.constant_sizes) + 2048
 
-    input_buf_size = (base_size / 11 - sizes.stack_size -
-                      sizes.output_size) / num_inputs
-    input_buf_size = min(pow(2, math.floor(math.log2(input_buf_size))), 1024)
+    try:
 
-    # check if valid
-    if input_buf_size >= 32 and all(map(lambda x: x <= input_buf_size, sizes.input_sizes)):
-        return ReduceConfigParams(11, 11, input_buf_size)
+        input_buf_size = (base_size / 11 - sizes.stack_size -
+                        sizes.output_size) / num_inputs
+        input_buf_size = min(pow(2, math.floor(math.log2(input_buf_size))), 1024)
+
+        # check if valid
+        if input_buf_size >= 32 and all(map(lambda x: x <= input_buf_size, sizes.input_sizes)):
+            return ReduceConfigParams(11, 11, input_buf_size)
+
+    except:
+        pass
 
     # decide between (T == 11 and R < T) or (T == R and T < 11)
     # this choice should be based on the relative size difference between reduction variables
@@ -275,13 +280,18 @@ def optimize_reduce_params(sizes: SizeInformation) -> ReduceConfigParams:
     # for now, assume that we want to stay at T == 11. Reduce R instead
 
     # reasonable choice for input buf size: enough to fit any input, but not smaller than 256
-    input_buf_size = max(
-        pow(2, math.ceil(math.log2(max(sizes.input_sizes)))), 256)
-    reduction_var_count = (base_size - 11 * (sizes.stack_size +
-                           input_buf_size * num_inputs)) // sizes.output_size
+    try:
 
-    if reduction_var_count >= 1:
-        return ReduceConfigParams(11, reduction_var_count, input_buf_size)
+        input_buf_size = max(
+            pow(2, math.ceil(math.log2(max(sizes.input_sizes)))), 256)
+        reduction_var_count = (base_size - 11 * (sizes.stack_size +
+                            input_buf_size * num_inputs)) // sizes.output_size
+
+        if reduction_var_count >= 1:
+            return ReduceConfigParams(11, reduction_var_count, input_buf_size)
+
+    except:
+        pass
 
     raise "unable to configure program parameters"
 
@@ -293,13 +303,18 @@ def optimize_noreduce_params(sizes: SizeInformation) -> NoreduceConfigParams:
     num_inputs = len(sizes.input_sizes)
 
     base_size = pow(2, 16)  # default WRAM size is 64KB == 2^16 B
-    base_size -= sum(sizes.global_sizes) + sum(sizes.constant_sizes)
+    base_size -= sum(sizes.global_sizes) + sum(sizes.constant_sizes) + 2048
 
-    buf_size = (base_size / 11 - sizes.stack_size) / (num_inputs + 1)
-    buf_size = min(pow(2, math.floor(math.log2(buf_size))), 1024)
+    try:
 
-    if buf_size >= 32 and all(map(lambda x: x <= buf_size, sizes.input_sizes + [sizes.output_size])):
-        return NoreduceConfigParams(11, buf_size, buf_size)
+        buf_size = (base_size / 11 - sizes.stack_size) / (num_inputs + 1)
+        buf_size = min(pow(2, math.floor(math.log2(buf_size))), 1024)
+
+        if buf_size >= 32 and all(map(lambda x: x <= buf_size, sizes.input_sizes + [sizes.output_size])):
+            return NoreduceConfigParams(11, buf_size, buf_size)
+    
+    except:
+        pass
 
     # TODO: in case the buffers don't fit, try reducing number of tasklets
 

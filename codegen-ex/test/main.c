@@ -4,7 +4,8 @@
 #include <stdlib.h>
 
 // #define COMBINE_ADD
-// #define HISTOGRAM
+// #define HISTOGRAM_SMALL
+// #define HISTOGRAM_LARGE
 // #define FILTER_MULTIPLES
 // #define SUM_REDUCE
 // #define MAP_ONLY
@@ -31,7 +32,7 @@ int main() {
 }
 #endif
 
-#ifdef HISTOGRAM
+#ifdef HISTOGRAM_SMALL
 int main() {
     const size_t elem_count = 130;
     input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
@@ -46,6 +47,22 @@ int main() {
 }
 #endif
 
+#ifdef HISTOGRAM_LARGE
+int main() {
+    const size_t elem_count = 13000;
+    input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
+    uint32_t val = 1;
+    for (uint32_t i = 0; i < elem_count; ++i) {
+        input[i] = val;
+        val = (16807 * val) % (~0 - 1);
+    }
+    reduction_out_t output;
+    process(&output, input, elem_count);
+    // for (uint32_t i = 0; i < 2048; ++i) {
+    //     printf("%u: %u\n", i, output[i]);
+    // }
+}
+#endif
 
 #ifdef FILTER_MULTIPLES
 int main() {

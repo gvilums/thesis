@@ -13,7 +13,7 @@ end
 
 
 for filename in ./inputs/*
-    run_test $filename &
+    run_test $filename
 end
 
 wait

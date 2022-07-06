@@ -1,0 +1,24 @@
+# An example pipeline to be compiled for execution using UPMEM
+
+[pipeline]
+name = "histogram_large"
+constants = [
+    { name = "empty_array", type = "uint32_t[2048]", init = "{}" },
+]
+
+[[stages]]
+kind = "input"
+inputs = ["uint32_t"]
+
+[[stages]]
+kind = "reduce"
+identity = "empty_array"
+output = "uint32_t[2048]"
+program = """
+(*out_ptr)[*in_ptr >> 21] += 1;
+"""
+combine = """
+for (int i = 0; i < 2048; ++i) {
+    (*out_ptr)[i] += (*in_ptr)[i];
+}
+"""

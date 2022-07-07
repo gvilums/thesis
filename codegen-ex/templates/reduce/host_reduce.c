@@ -11,7 +11,7 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
     timer_retrieve_data();
     struct dpu_set_t dpu;
     uint32_t dpu_id;
-	reduction_out_t* outputs = malloc(sizeof(reduction_out_t) * nr_dpus);
+	reduction_out_t* outputs = (reduction_out_t*)malloc(sizeof(reduction_out_t) * nr_dpus);
     // DPU_FOREACH(set, dpu) {
     //     DPU_ASSERT(dpu_log_read(dpu, stdout));
     // }
@@ -32,7 +32,7 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
 
 <%block name="process">
 int process(output_t* output ${ parent.param_decl() }) {
-    struct dpu_set_t set, dpu;
+    struct dpu_set_t set;
     uint32_t nr_dpus;
 
 #ifdef SIMULATOR

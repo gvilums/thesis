@@ -26,30 +26,33 @@ size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** o
     // align to 8-byte multiple for transfer
     max_output_elems = ((max_output_elems - 1) | 7) + 1;
 
-    output_t* output_data_buffers[nr_dpus];
+    output_t* temp_output_buffer = (output_t*)malloc(nr_dpus * max_output_elems * sizeof(output_t));
     DPU_FOREACH(set, dpu, dpu_id) { 
-        output_data_buffers[dpu_id] = malloc(sizeof(output_t) * max_output_elems);
-        DPU_ASSERT(dpu_prepare_xfer(dpu, output_data_buffers[dpu_id])); 
+        DPU_ASSERT(dpu_prepare_xfer(dpu, &temp_output_buffer[dpu_id * max_output_elems])); 
     }
 
     timer_start_combine();
 
-
     DPU_ASSERT(
         dpu_push_xfer(set, DPU_XFER_FROM_DPU, "element_output_buffer", 0, sizeof(output_t) * max_output_elems, DPU_XFER_DEFAULT));
 
-    output_t* final_output = malloc(sizeof(output_t) * total_output_elems);
+    output_t* final_output = (output_t*)malloc(sizeof(output_t) * total_output_elems);
 
     size_t offset = 0;
+    // size_t offsets[nr_dpus] = {};
+    // size_t indices[nr_dpus] = {};
+    // for (int i = 1; i < nr_dpus; ++i) {
+    //     indices[i] = i;
+    //     offsets[i] = offsets[i - 1] + output_elem_counts[i];
+    // }
+    // std::for_each(std::execution::par_unseq, &indices[0], &indices[nr_dpus], [&](size_t i) {
+    //     memcpy(&final_output[offset], &temp_output_buffer[i * max_output_elems], sizeof(output_t) * output_elem_counts[i]);
+    // });
     for (int i = 0; i < nr_dpus; ++i) {
-        // for (int j = 0; j < output_elem_counts[i]; ++j) {
-        //     printf("%u ", output_data_buffers[i][j]);
-        // }
-        // puts("\n");
-        memcpy(&final_output[offset], output_data_buffers[i], sizeof(output_t) * output_elem_counts[i]);
+        memcpy(&final_output[offset], &temp_output_buffer[i * max_output_elems], sizeof(output_t) * output_elem_counts[i]);
         offset += output_elem_counts[i];
-        free(output_data_buffers[i]);
     }
+    free(temp_output_buffer);
     *output = final_output;
     return total_output_elems;
 }
@@ -57,7 +60,7 @@ size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** o
 
 <%block name="process">
 size_t process(output_t** output ${ parent.param_decl() }) {
-    struct dpu_set_t set, dpu;
+    struct dpu_set_t set;
     uint32_t nr_dpus;
 
 #ifdef SIMULATOR

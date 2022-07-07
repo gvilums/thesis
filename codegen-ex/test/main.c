@@ -11,13 +11,13 @@
 // #define MAP_ONLY
 // #define VECTOR_ADD
 
-#define SIZE_FACTOR 10000
+#define SIZE_FACTOR 10
 
 #ifdef COMBINE_ADD
 int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;
-    input_0_t* input_0 = malloc(sizeof(input_0_t) * elem_count);
-    input_1_t* input_1 = malloc(sizeof(input_1_t) * elem_count);
+    input_0_t* input_0 = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
+    input_1_t* input_1 = (input_1_t*)malloc(sizeof(input_1_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
         input_0[i] = 1;
         input_1[i] = 2;
@@ -40,7 +40,7 @@ int main() {
 #ifdef HISTOGRAM_SMALL
 int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;
-    input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
+    input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
 	uint32_t val = 1;
     for (int i = 0; i < elem_count; ++i) {
         input[i] = val;
@@ -60,7 +60,7 @@ int main() {
 #ifdef HISTOGRAM_LARGE
 int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;
-    input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
+    input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     uint32_t val = 1;
     for (uint32_t i = 0; i < elem_count; ++i) {
         input[i] = val;
@@ -80,7 +80,7 @@ int main() {
 #ifdef FILTER_MULTIPLES
 int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;
-    input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
+    input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
         input[i] = i;
     }
@@ -109,7 +109,7 @@ int main() {
 #ifdef SUM_REDUCE
 int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;
-    input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
+    input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
         input[i] = 1;
     }
@@ -130,7 +130,7 @@ int main() {
 #ifdef MAP_ONLY
 int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;
-    input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
+    input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
         input[i] = i;
     }
@@ -154,8 +154,8 @@ int main() {
 #ifdef VECTOR_ADD
 int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;
-    input_0_t* input_0 = malloc(sizeof(input_0_t) * elem_count);
-    input_1_t* input_1 = malloc(sizeof(input_1_t) * elem_count);
+    input_0_t* input_0 = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
+    input_1_t* input_1 = (input_1_t*)malloc(sizeof(input_1_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
         input_0[i] = 1;
         input_1[i] = 2;

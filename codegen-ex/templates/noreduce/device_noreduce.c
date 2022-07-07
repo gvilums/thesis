@@ -73,6 +73,10 @@ uint32_t current_output_offsets[NR_TASKLETS];
 <%block name="function_decl">
 void flush_outputs() {
     uint32_t i = me();
+    // if we have no data to flush, return early
+    if (local_outbuf_sizes[i] == 0) {
+        return;
+    }
     mram_write(&local_output_buffers[i][0], &element_output_buffer[current_output_offsets[i]], local_outbuf_sizes[i]);
     // advance offset by size of data we just copied
     current_output_offsets[i] += local_outbuf_sizes[i];

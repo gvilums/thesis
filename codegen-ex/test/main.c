@@ -74,14 +74,18 @@ int main() {
     output_t* output;
     uint32_t factor = 2;
     size_t result_count = process(&output, input, elem_count, &factor);
-    for (uint32_t i = 0; i < result_count; ++i) {
+    int err = 0;
+    for (uint64_t i = 0; i < result_count; ++i) {
         if (output[i] != i * factor) {
-	    printf("%lu is not a multiple of %u\n", output[i], factor);
-            puts("filter_multiples: ERROR");
-            return 1;
+            printf("expected %lu, got %lu\n", factor * i, output[i]);
+            ++err;
         }
     }
-    puts("filter_multiples: ok");
+    if (err) {
+        puts("filter_multiples: ERROR");
+    } else {
+        puts("filter_multiples: ok");
+    }
 }
 #endif
 

@@ -13,7 +13,7 @@
 
 #ifdef COMBINE_ADD
 int main() {
-    const size_t elem_count = 1000;
+    const size_t elem_count = 1000000;
     input_0_t* input_0 = malloc(sizeof(input_0_t) * elem_count);
     input_1_t* input_1 = malloc(sizeof(input_1_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
@@ -23,7 +23,7 @@ int main() {
     uint32_t global_0 = 1;
     reduction_out_t output;
     process(&output, input_0, input_1, elem_count, &global_0);
-    if (output == 4000) {
+    if (output == 4 * elem_count) {
         puts("sum_reduce: ok");
     } else {
         puts("sum_reduce: ERROR");
@@ -34,10 +34,12 @@ int main() {
 
 #ifdef HISTOGRAM_SMALL
 int main() {
-    const size_t elem_count = 130;
+    const size_t elem_count = 1000000;
     input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
+	uint32_t val = 1;
     for (int i = 0; i < elem_count; ++i) {
-        input[i] = i;
+        input[i] = val;
+		val = (16807 * val) % (~0 - 1);
     }
     reduction_out_t output;
     process(&output, input, elem_count);
@@ -49,7 +51,7 @@ int main() {
 
 #ifdef HISTOGRAM_LARGE
 int main() {
-    const size_t elem_count = 13000;
+    const size_t elem_count = 1000000;
     input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
     uint32_t val = 1;
     for (uint32_t i = 0; i < elem_count; ++i) {
@@ -66,7 +68,7 @@ int main() {
 
 #ifdef FILTER_MULTIPLES
 int main() {
-    const size_t elem_count = 10000;
+    const size_t elem_count = 1000000;
     input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
         input[i] = i;
@@ -91,14 +93,14 @@ int main() {
 
 #ifdef SUM_REDUCE
 int main() {
-    const size_t elem_count = 1000;
+    const size_t elem_count = 1000000;
     input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
-        input[i] = i;
+        input[i] = 1;
     }
     reduction_out_t output;
     process(&output, input, elem_count);
-    if (output == 499500) {
+    if (output == elem_count) {
         puts("sum_reduce: ok");
     } else {
         puts("sum_reduce: ERROR");
@@ -109,7 +111,7 @@ int main() {
 
 #ifdef MAP_ONLY
 int main() {
-    const size_t elem_count = 100;
+    const size_t elem_count = 1000000;
     input_0_t* input = malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
         input[i] = i;
@@ -129,7 +131,7 @@ int main() {
 
 #ifdef VECTOR_ADD
 int main() {
-    const size_t elem_count = 1000;
+    const size_t elem_count = 1000000;
     input_0_t* input_0 = malloc(sizeof(input_0_t) * elem_count);
     input_1_t* input_1 = malloc(sizeof(input_1_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {

@@ -10,7 +10,7 @@ void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_
 void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_t* output) {
     struct dpu_set_t dpu;
     uint32_t dpu_id;
-    reduction_out_t outputs[nr_dpus];
+	reduction_out_t* outputs = malloc(sizeof(reduction_out_t) * nr_dpus);
     // DPU_FOREACH(set, dpu) {
     //     DPU_ASSERT(dpu_log_read(dpu, stdout));
     // }
@@ -24,6 +24,7 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
     }
 
     memcpy(output, &outputs[0], sizeof(outputs[0]));
+	free(outputs);
 }
 </%block>
 

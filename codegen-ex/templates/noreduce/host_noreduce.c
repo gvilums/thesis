@@ -5,6 +5,7 @@
 
 <%block name="compute_result">
 size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** output) {
+    timer_retrieve_data();
     struct dpu_set_t dpu;
     uint32_t dpu_id;
     elem_count_t output_elem_counts[nr_dpus];
@@ -30,6 +31,8 @@ size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** o
         output_data_buffers[dpu_id] = malloc(sizeof(output_t) * max_output_elems);
         DPU_ASSERT(dpu_prepare_xfer(dpu, output_data_buffers[dpu_id])); 
     }
+
+    timer_start_combine();
 
 
     DPU_ASSERT(
@@ -66,10 +69,17 @@ size_t process(output_t** output ${ parent.param_decl() }) {
     DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
     DPU_ASSERT(dpu_get_nr_dpus(set, &nr_dpus));
 
+    timer_start_transfer();
+
     setup_inputs(set, nr_dpus ${ parent.param_use() });
 
+    timer_launch_dpus();
+
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+
     size_t output_elems = compute_final_result(set, nr_dpus, output);
+
+    timer_finish();
 
     DPU_ASSERT(dpu_free(set));
     return output_elems;

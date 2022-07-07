@@ -11,6 +11,9 @@
 // #define MAP_ONLY
 // #define VECTOR_ADD
 
+struct timer global_timer;
+int iter = 0;
+
 #ifdef COMBINE_ADD
 int main() {
     const size_t elem_count = 1000000;
@@ -22,7 +25,11 @@ int main() {
     }
     uint32_t global_0 = 1;
     reduction_out_t output;
-    process(&output, input_0, input_1, elem_count, &global_0);
+    for (int i = 0; i < ITERATIONS; ++i) {
+        process(&output, input_0, input_1, elem_count, &global_0);
+        ++iter;
+    }
+    timer_print_summary();
     if (output == 4 * elem_count) {
         puts("sum_reduce: ok");
     } else {
@@ -42,10 +49,14 @@ int main() {
 		val = (16807 * val) % (~0 - 1);
     }
     reduction_out_t output;
-    process(&output, input, elem_count);
-    for (uint32_t i = 0; i < 256; ++i) {
-        // printf("%u: %u\n", i, output[i]);
+    for (int i = 0; i < ITERATIONS; ++i) {
+        process(&output, input, elem_count);
+        ++iter;
     }
+    timer_print_summary();
+    // for (uint32_t i = 0; i < 256; ++i) {
+        // printf("%u: %u\n", i, output[i]);
+    // }
 }
 #endif
 
@@ -59,7 +70,11 @@ int main() {
         val = (16807 * val) % (~0 - 1);
     }
     reduction_out_t output;
-    process(&output, input, elem_count);
+    for (int i = 0; i < ITERATIONS; ++i) {
+        process(&output, input, elem_count);
+        ++iter;
+    }
+    timer_print_summary();
     // for (uint32_t i = 0; i < 2048; ++i) {
     //     printf("%u: %u\n", i, output[i]);
     // }
@@ -75,8 +90,13 @@ int main() {
     }
     output_t* output;
     uint32_t factor = 2;
-    size_t result_count = process(&output, input, elem_count, &factor);
+    size_t result_count = 0;
     int err = 0;
+    for (int i = 0; i < ITERATIONS; ++i) {
+        result_count = process(&output, input, elem_count, &factor);
+        ++iter;
+    }
+    timer_print_summary();
     for (uint64_t i = 0; i < result_count; ++i) {
         if (output[i] != i * factor) {
             printf("expected %lu, got %lu\n", factor * i, output[i]);
@@ -99,7 +119,11 @@ int main() {
         input[i] = 1;
     }
     reduction_out_t output;
-    process(&output, input, elem_count);
+    for (int i = 0; i < ITERATIONS; ++i) {
+        process(&output, input, elem_count);
+        ++iter;
+    }
+    timer_print_summary();
     if (output == elem_count) {
         puts("sum_reduce: ok");
     } else {
@@ -118,7 +142,12 @@ int main() {
     }
     output_t* output;
     global_0_t factor = 2;
-    size_t result_count = process(&output, input, elem_count, &factor);
+    size_t result_count = 0;
+    for (int i = 0; i < ITERATIONS; ++i) {
+        result_count = process(&output, input, elem_count, &factor);
+        ++iter;
+    }
+    timer_print_summary();
     for (uint32_t i = 0; i < result_count; ++i) {
         if (output[i] != i * factor) {
             puts("map_only: ERROR");
@@ -138,8 +167,13 @@ int main() {
         input_0[i] = 1;
         input_1[i] = 2;
     }
+    size_t count = 0;
     output_t* output;
-    size_t count = process(&output, input_0, input_1, elem_count);
+    for (int i = 0; i < ITERATIONS; ++i) {
+        count = process(&output, input_0, input_1, elem_count);
+        ++iter;
+    }
+    timer_print_summary();
 	if (count != elem_count) {
 		puts("vector_add: ERROR");
 		return 1;

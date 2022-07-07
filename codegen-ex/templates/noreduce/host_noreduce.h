@@ -1,7 +1,6 @@
-#pragma once
+<%inherit file="host.h"/>
 
-#include "common.h"
-
+<%block name="process_decl">
 size_t process(output_t** output\
 % for i in range(0, len(in_stage["inputs"])):
 , const input_${ i }_t* input_${ i }\
@@ -11,3 +10,4 @@ size_t process(output_t** output\
 , const global_${ loop.index }_t* global_${ loop.index }\
 % endfor
 );
+</%block>

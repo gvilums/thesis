@@ -1,4 +1,5 @@
 #include "common.h"
+#include "host.h"
 
 #include <assert.h>
 #include <dpu.h>
@@ -83,3 +84,50 @@ void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus ${ param_decl() }) {
 <%block name="compute_result"/>
 
 <%block name="process"/>
+
+
+void timer_start_transfer(void) {
+    clock_gettime(CLOCK_MONOTONIC_RAW, &global_timer.times[iter][0]);
+}
+
+void timer_launch_dpus(void) {
+    clock_gettime(CLOCK_MONOTONIC_RAW, &global_timer.times[iter][1]);
+}
+
+void timer_retrieve_data(void) {
+    clock_gettime(CLOCK_MONOTONIC_RAW, &global_timer.times[iter][2]);
+}
+
+void timer_start_combine(void) {
+    clock_gettime(CLOCK_MONOTONIC_RAW, &global_timer.times[iter][3]);
+}
+
+void timer_finish(void) {
+    clock_gettime(CLOCK_MONOTONIC_RAW, &global_timer.times[iter][4]);
+}
+
+long compute_time_delta(const struct timespec* t0, const struct timespec* t1) {
+    long second_delta = t1->tv_sec - t0->tv_sec;
+    long nano_delta = t1->tv_nsec - t0->tv_nsec;
+    return 1000000 * second_delta + nano_delta / 1000;
+}
+
+void timer_print_summary(void) {
+    double avg_times[4];
+    double total = 0;
+    for (int i = 0; i < 4; ++i) {
+        double sum = 0;
+        for (int j = 0; j < ITERATIONS; ++j) {
+            sum += compute_time_delta(&global_timer.times[j][i], &global_timer.times[j][i + 1]);
+        }
+        sum /= ITERATIONS;
+
+        avg_times[i] = sum;
+        total += sum;
+    }
+    printf("total time         : %lf us\n", total);
+    printf("cpu -> dpu transfer: %lf us\n", avg_times[0]);
+    printf("dpu execution      : %lf us\n", avg_times[1]);
+    printf("dpu -> cpu transfer: %lf us\n", avg_times[2]);
+    printf("cpu final combine  : %lf us\n", avg_times[3]);
+}

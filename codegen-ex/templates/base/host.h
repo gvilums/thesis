@@ -7,8 +7,6 @@
 
 <%block name="process_decl"/>
 
-extern struct timer global_timer;
-extern int iter;
 #define ITERATIONS 10
 
 long compute_time_delta(const struct timespec* t0, const struct timespec* t1);

@@ -155,9 +155,10 @@ void timer_print_summary(void) {
         avg_times[i] = sum;
         total += sum;
     }
-    printf("total time          | %15lf us\n", total);
-    printf("cpu -> dpu transfer | %15lf us\n", avg_times[0]);
-    printf("dpu execution       | %15lf us\n", avg_times[1]);
-    printf("dpu -> cpu transfer | %15lf us\n", avg_times[2]);
-    printf("cpu final combine   | %15lf us\n", avg_times[3]);
+    printf("cpu -> dpu transfer %15lf us\n", avg_times[0]);
+    printf("dpu execution       %15lf us\n", avg_times[1]);
+    printf("dpu -> cpu transfer %15lf us\n", avg_times[2]);
+    printf("cpu final combine   %15lf us\n", avg_times[3]);
+	printf("-----------------------------------\n");
+    printf("total time          %15lf us\n", total);
 }

@@ -8,7 +8,7 @@
 extern "C" {
 #include <dpu.h>
 }
-#include <execution>
+// #include <execution>
 #include <algorithm>
 
 #define DPU_BINARY "device"

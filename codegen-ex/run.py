@@ -25,7 +25,7 @@ def run_test(input_file, out_dir, build_dir):
     args += ["-g"]
     args += [sim_define, f"-D{test_name.upper()}"]
     args += [upmem_include, f"-I{out_dir}"]
-    args += [upmem_link, "-ltbb", "-ldpu"]
+    args += [upmem_link, "-ldpu", "-lpthread"] # -ltbb for std::execution
     args += [join(out_dir, "host.cpp"), "./test/main.cpp"]
     args += ["-o", join(build_dir, "host")]
 

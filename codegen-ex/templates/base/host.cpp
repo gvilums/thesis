@@ -10,6 +10,8 @@ extern "C" {
 }
 // #include <execution>
 #include <algorithm>
+#include <vector>
+#include <thread>
 
 #define DPU_BINARY "device"
 

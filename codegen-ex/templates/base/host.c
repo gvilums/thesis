@@ -29,7 +29,10 @@
 % endfor
 </%def>
 
+void copy_parallel(output_t* target, output_t* src, size_t nr_dpus, elem_count_t* output_elem_counts, elem_count_t max_output_elems);
+
 <%block name="top_level_decl"/>
+
 
 void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus ${ param_decl() }) {
     struct dpu_set_t dpu;

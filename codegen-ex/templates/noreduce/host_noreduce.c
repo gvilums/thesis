@@ -38,20 +38,7 @@ size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** o
 
     output_t* final_output = (output_t*)malloc(sizeof(output_t) * total_output_elems);
 
-    size_t offset = 0;
-    // size_t offsets[nr_dpus] = {};
-    // size_t indices[nr_dpus] = {};
-    // for (int i = 1; i < nr_dpus; ++i) {
-    //     indices[i] = i;
-    //     offsets[i] = offsets[i - 1] + output_elem_counts[i];
-    // }
-    // std::for_each(std::execution::par_unseq, &indices[0], &indices[nr_dpus], [&](size_t i) {
-    //     memcpy(&final_output[offset], &temp_output_buffer[i * max_output_elems], sizeof(output_t) * output_elem_counts[i]);
-    // });
-    for (int i = 0; i < nr_dpus; ++i) {
-        memcpy(&final_output[offset], &temp_output_buffer[i * max_output_elems], sizeof(output_t) * output_elem_counts[i]);
-        offset += output_elem_counts[i];
-    }
+    copy_parallel(final_output, temp_output_buffer, nr_dpus, &output_elem_counts[0], max_output_elems);
     free(temp_output_buffer);
     *output = final_output;
     return total_output_elems;

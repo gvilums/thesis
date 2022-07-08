@@ -152,21 +152,24 @@ double compute_micro_time_delta(const struct timespec* t0, const struct timespec
 
 void timer_print_summary(void) {
     double avg_times[4];
-    double total = 0;
     for (int i = 0; i < 4; ++i) {
         double sum = 0;
         for (int j = 0; j < ITERATIONS; ++j) {
             sum += compute_micro_time_delta(&global_timer.times[j][i], &global_timer.times[j][i + 1]);
         }
         sum /= ITERATIONS;
-
         avg_times[i] = sum;
-        total += sum;
     }
+
+    double total = 0;
+    for (int j = 0; j < ITERATIONS; ++j) {
+        total += compute_micro_time_delta(&global_timer.times[j][0], &global_timer.times[j][4]);
+    }
+    total /= ITERATIONS;
     printf("cpu -> dpu transfer %15lf us\n", avg_times[0]);
     printf("dpu execution       %15lf us\n", avg_times[1]);
     printf("dpu -> cpu transfer %15lf us\n", avg_times[2]);
     printf("cpu final combine   %15lf us\n", avg_times[3]);
-	printf("-----------------------------------\n");
+	printf("--------------------------------------\n");
     printf("total time          %15lf us\n", total);
 }

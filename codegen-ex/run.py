@@ -22,14 +22,17 @@ def run_test(input_file, out_dir, build_dir):
     
     args = ["c++"]
 
-    args += ["-g"]
+    args += ["-g", "-O3"]
     args += [sim_define, f"-D{test_name.upper()}"]
     args += [upmem_include, f"-I{out_dir}"]
     args += [upmem_link, "-ldpu", "-lpthread"] # -ltbb for std::execution
     args += [join(out_dir, "host.cpp"), "./test/main.cpp"]
     args += ["-o", join(build_dir, "host")]
 
-    subprocess.run(args, check=True)
+    compile_result = subprocess.run(args, check=True)
+    if compile_result.returncode != 0:
+        print(compile_result.stderr.decode("utf8"))
+        compile_result.check_returncode()
 
     os.chdir(build_dir)
     result = subprocess.run("./host", capture_output=True)

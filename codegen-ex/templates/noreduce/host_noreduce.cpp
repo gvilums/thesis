@@ -3,16 +3,37 @@
 <%block name="top_level_decl">
 void copy_parallel(output_t* target, output_t* src, size_t nr_dpus, elem_count_t* output_elem_counts, elem_count_t max_output_elems) {
     size_t offsets[nr_dpus] = {};
-    size_t indices[nr_dpus] = {};
     for (int i = 1; i < nr_dpus; ++i) {
-        indices[i] = i;
         offsets[i] = offsets[i - 1] + output_elem_counts[i - 1];
     }
-    std::for_each(
-        // std::execution::par_unseq, 
-        &indices[0], &indices[nr_dpus], [&](size_t i) {
-        memcpy(&target[offsets[i]], &src[i * max_output_elems], sizeof(output_t) * output_elem_counts[i]);
-    });
+    // std::for_each(
+    //     // std::execution::par_unseq, 
+    //     &indices[0], &indices[nr_dpus], [&](size_t i) {
+    //     memcpy(&target[offsets[i]], &src[i * max_output_elems], sizeof(output_t) * output_elem_counts[i]);
+    // });
+
+    // todo decide if parallelism makes sense, based on size of output_t and count
+    // for now, assume we always work in parallel
+    auto num_threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> threads;
+
+    threads.reserve(num_threads);
+
+    size_t base_inputs = nr_dpus / num_threads;
+    size_t remaining_elems = nr_dpus % num_threads;
+
+    for (int i = 0; i < num_threads; ++i) {
+        size_t elem_count = base_inputs + (i < remaining_elems);
+        size_t local_offset = elem_count * i + (i >= remaining_elems) * remaining_elems;
+        threads.emplace_back([=,&offsets] {
+            for (size_t j = local_offset; j < local_offset + elem_count; ++j) {
+                memcpy(&target[offsets[j]], &src[j * max_output_elems], sizeof(output_t) * output_elem_counts[j]);
+            }
+        });
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
 }
 </%block>
 

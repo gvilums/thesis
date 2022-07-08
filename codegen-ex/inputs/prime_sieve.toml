@@ -1,0 +1,33 @@
+# An example pipeline to be compiled for execution using UPMEM
+
+[pipeline]
+name = "filer_multiples"
+
+[[stages]]
+kind = "input"
+inputs = ["uint32_t"]
+
+[[stages]]
+# filters data elements by a predicate
+kind = "filter"
+program = """
+uint32_t n = *in_ptr;
+if (n == 1) {
+    return 0;
+}
+uint32_t i = 2;
+while (i * i <= n) {
+    if (n % i == 0) {
+        return 0;
+    }
+    ++i;
+}
+return 1;
+""" 
+
+[[stages]]
+kind = "map"
+output = "uint64_t"
+program = """
+*out_ptr = *in_ptr;
+"""

@@ -106,6 +106,22 @@ int main() {
 }
 #endif
 
+#ifdef PRIME_SIEVE
+int main() {
+    const size_t elem_count = 1000 * SIZE_FACTOR;
+    input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
+    for (int i = 0; i < elem_count; ++i) {
+        input[i] = i;
+    }
+    output_t* output;
+    size_t result_count = 0;
+    for (int i = 0; i < ITERATIONS; ++i) {
+        result_count = process(&output, input, elem_count);
+    }
+    timer_print_summary();
+}
+#endif
+
 #ifdef SUM_REDUCE
 int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;

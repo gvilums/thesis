@@ -62,10 +62,10 @@ class CodegenOutput:
         with open(f'{output_dir}/device.c', 'w') as out:
             out.write(self.device_code)
 
-        with open(f'{output_dir}/host.c', 'w') as out:
+        with open(f'{output_dir}/host.cpp', 'w') as out:
             out.write(self.host_code)
 
-        with open(f'{output_dir}/host.h', 'w') as out:
+        with open(f'{output_dir}/host.hpp', 'w') as out:
             out.write(self.host_header)
 
 
@@ -140,8 +140,8 @@ def create_reduce_pipeline(config, lookup: TemplateLookup) -> CodegenOutput:
 
     device_code_template = lookup.get_template("device_reduce.c")
     common_header_template = lookup.get_template("common_reduce.h")
-    host_code_template = lookup.get_template("host_reduce.c")
-    host_header_template = lookup.get_template("host_reduce.h")
+    host_code_template = lookup.get_template("host_reduce.cpp")
+    host_header_template = lookup.get_template("host_reduce.hpp")
 
     pipeline = config["pipeline"]
     in_stage = config["stages"][0]
@@ -159,8 +159,8 @@ def create_reduce_pipeline(config, lookup: TemplateLookup) -> CodegenOutput:
 def create_noreduce_pipeline(config, lookup: TemplateLookup) -> CodegenOutput:
     device_code_template = lookup.get_template("device_noreduce.c")
     common_header_template = lookup.get_template("common_noreduce.h")
-    host_code_template = lookup.get_template("host_noreduce.c")
-    host_header_template = lookup.get_template("host_noreduce.h")
+    host_code_template = lookup.get_template("host_noreduce.cpp")
+    host_header_template = lookup.get_template("host_noreduce.hpp")
 
     pipeline = config["pipeline"]
     in_stage = config["stages"][0]
@@ -240,7 +240,7 @@ def compute_size_info(config, lookup: TemplateLookup, code: CodegenOutput) -> Si
         # align stack size to 8 bytes
         stack_size = ((int(stack_size_re_res.group(1)) - 1) | 7) + 1
 
-        subprocess.run(["gcc", f"{tmpdir}/size_info.c", "-o", f"{tmpdir}/size_info"], check=True)
+        subprocess.run(["cc", f"{tmpdir}/size_info.c", "-o", f"{tmpdir}/size_info"], check=True)
         size_info_output = subprocess.run([f"{tmpdir}/size_info"], capture_output=True).stdout.decode("utf8").split()
         assert len(size_info_output) == num_globals + num_constants + num_inputs + 1
         global_sizes = list(map(int, size_info_output[0:num_globals]))

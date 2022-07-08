@@ -1,6 +1,19 @@
-<%inherit file="host.c"/>
+<%inherit file="host.cpp"/>
 
 <%block name="top_level_decl">
+void copy_parallel(output_t* target, output_t* src, size_t nr_dpus, elem_count_t* output_elem_counts, elem_count_t max_output_elems) {
+    size_t offsets[nr_dpus] = {};
+    size_t indices[nr_dpus] = {};
+    for (int i = 1; i < nr_dpus; ++i) {
+        indices[i] = i;
+        offsets[i] = offsets[i - 1] + output_elem_counts[i - 1];
+    }
+    std::for_each(
+        // std::execution::par_unseq, 
+        &indices[0], &indices[nr_dpus], [&](size_t i) {
+        memcpy(&target[offsets[i]], &src[i * max_output_elems], sizeof(output_t) * output_elem_counts[i]);
+    });
+}
 </%block>
 
 <%block name="compute_result">

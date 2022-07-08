@@ -1,8 +1,40 @@
-<%inherit file="host.c"/>
+<%inherit file="host.cpp"/>
 
 <%block name="top_level_decl">
-void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_out_t* restrict in_ptr) {
+void pipeline_reduce_combine(reduction_out_t* __restrict out_ptr, const reduction_out_t* __restrict in_ptr) {
     ${ reduction["combine"] }
+}
+
+void reduce_parallel(output_t* values, size_t count) {
+    // todo decide if parallelism makes sense, based on size of output_t and count
+    // for now, assume we always work in parallel
+    auto num_threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> threads;
+    std::vector<size_t> result_offsets;
+
+    threads.reserve(num_threads);
+    result_offsets.reserve(num_threads);
+
+    size_t base_inputs = count / num_threads;
+    size_t remaining_elems = count % num_threads;
+
+    for (int i = 0; i < num_threads; ++i) {
+        size_t elem_count = base_inputs + (i < remaining_elems);
+        size_t local_offset = elem_count * i + (i >= remaining_elems) * remaining_elems;
+        result_offsets.push_back(local_offset);
+        threads.emplace_back([=] {
+            for (size_t i = 1; i < elem_count; ++i) {
+                pipeline_reduce_combine(&values[local_offset], &values[local_offset + i]);
+            }
+        });
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    for (int i = 1; i < num_threads; ++i) {
+        pipeline_reduce_combine(&values[0], &values[result_offsets[i]]);
+    }
 }
 </%block>
 
@@ -21,9 +53,10 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
 
     timer_start_combine();
 
-    for (int i = 1; i < nr_dpus; ++i) {
-        pipeline_reduce_combine(&outputs[0], &outputs[i]);
-    }
+    reduce_parallel(&outputs[0], nr_dpus);
+    // for (int i = 1; i < nr_dpus; ++i) {
+        // pipeline_reduce_combine(&outputs[0], &outputs[i]);
+    // }
 
     memcpy(output, &outputs[0], sizeof(outputs[0]));
 	free(outputs);

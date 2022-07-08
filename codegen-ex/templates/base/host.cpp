@@ -1,11 +1,15 @@
 #include "common.h"
-#include "host.h"
+#include "host.hpp"
 
 #include <assert.h>
-#include <dpu.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+extern "C" {
+#include <dpu.h>
+}
+#include <execution>
+#include <algorithm>
 
 #define DPU_BINARY "device"
 
@@ -29,7 +33,6 @@
 % endfor
 </%def>
 
-void copy_parallel(output_t* target, output_t* src, size_t nr_dpus, elem_count_t* output_elem_counts, elem_count_t max_output_elems);
 
 <%block name="top_level_decl"/>
 

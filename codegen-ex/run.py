@@ -1,15 +1,14 @@
 #!/usr/bin/python3
 
-import os, shutil
+import os, shutil, sys, subprocess
 
-from subprocess import call
 from os.path import join
 
 def run_test(input_file, out_dir, build_dir):
     test_name = os.path.basename(input_file).split(".")[0]
     print(f"testing {test_name}")
 
-    call(["python3.11", "pipeline.py", input_file, out_dir])
+    subprocess.run(["python3.11", "pipeline.py", input_file, out_dir], check=True)
     shutil.copy(join(out_dir, "device"), join(build_dir, "device"))
 
     if os.path.exists("/usr/local/upmem"):
@@ -20,20 +19,41 @@ def run_test(input_file, out_dir, build_dir):
         upmem_include = "-I/usr/include/dpu"
         upmem_link = "-L/usr/lib"
         sim_define = "-DNO_SIMULATOR"
+    
+    args = ["c++"]
 
-    call(["g++-12", "-g", "-c", join(out_dir, "copy_parallel.cpp"), "-o", join(build_dir, "copy_parallel.o")])
-    call(["gcc-12", "-g", "-c", sim_define, upmem_include, join(out_dir, "host.c"), "-o", join(build_dir, "host.o")])
-    call(["gcc-12", "-g", "-c", f"-D{test_name.upper()}", f"-I{out_dir}", "./test/main.c", "-o", join(build_dir, "main.o")])
+    args += ["-g"]
+    args += [sim_define, f"-D{test_name.upper()}"]
+    args += [upmem_include, f"-I{out_dir}"]
+    args += [upmem_link, "-ltbb", "-ldpu"]
+    args += [join(out_dir, "host.cpp"), "./test/main.cpp"]
+    args += ["-o", join(build_dir, "host")]
+
+    subprocess.run(args, check=True)
 
     os.chdir(build_dir)
-
-    call(["g++-12", "copy_parallel.o", "host.o", "main.o", upmem_link, "-ltbb", "-ldpu", "-o", "host"])
-    call("./host")
-
+    result = subprocess.run("./host", capture_output=True)
+    if result.returncode != 0:
+        print("ERROR while running program:")
+        print(" ---- stderr ----")
+        print(result.stderr.decode("utf8"))
+        print(" ---- stdout ----")
+        print(result.stdout.decode("utf8"))
+    else:
+        print(result.stdout.decode("utf8"))
     os.chdir("..")
 
     print()
 
 
-for filename in os.listdir("inputs"):
-    run_test(f"inputs/{filename}", "output", "build")
+
+def main():
+    if len(sys.argv) == 1:
+        for filename in os.listdir("inputs"):
+            run_test(f"inputs/{filename}", "output", "build")
+    elif len(sys.argv) == 2:
+        run_test(f"inputs/{sys.argv[1]}.toml", "output", "build")
+    else:
+        print("usage: run.py [filename]")
+
+main()

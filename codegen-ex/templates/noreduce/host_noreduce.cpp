@@ -38,10 +38,12 @@ void copy_parallel(output_t* target, output_t* src, size_t nr_dpus, elem_count_t
 </%block>
 
 <%block name="compute_result">
-size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** output) {
+size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** output, size_t elem_count) {
     timer_retrieve_data();
     struct dpu_set_t dpu;
     uint32_t dpu_id;
+
+% if "no_filter" not in pipeline:
     elem_count_t output_elem_counts[nr_dpus];
     DPU_FOREACH(set, dpu, dpu_id) { 
         DPU_ASSERT(dpu_prepare_xfer(dpu, &output_elem_counts[dpu_id])); 
@@ -76,6 +78,36 @@ size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** o
     free(temp_output_buffer);
     *output = final_output;
     return total_output_elems;
+
+% else:
+
+    size_t base_inputs = elem_count / nr_dpus;
+    size_t remaining_elems = elem_count % nr_dpus;
+
+    output_t* out_buf = (output_t*)malloc(sizeof(output_t) * elem_count);
+
+    DPU_FOREACH(set, dpu, dpu_id) {
+        if (remaining_elems != 0 && dpu_id == remaining_elems) {
+            DPU_ASSERT(
+                dpu_push_xfer(set, DPU_XFER_FROM_DPU, "element_output_buffer", 0, sizeof(output_t) * (base_inputs + 1), DPU_XFER_DEFAULT));
+        }
+        size_t input_elem_count = base_inputs;
+        if (dpu_id < remaining_elems) {
+            input_elem_count += 1;
+        }
+        size_t local_offset = input_elem_count * dpu_id;
+        if (dpu_id >= remaining_elems) {
+            local_offset += remaining_elems;
+        }
+        DPU_ASSERT(dpu_prepare_xfer(dpu, &out_buf[local_offset]));
+    }
+    DPU_ASSERT(
+        dpu_push_xfer(set, DPU_XFER_FROM_DPU, "element_output_buffer", 0, sizeof(output_t) * base_inputs, DPU_XFER_DEFAULT));
+
+    *output = out_buf;
+    timer_start_combine();
+    return elem_count;
+% endif
 }
 </%block>
 
@@ -101,7 +133,7 @@ size_t process(output_t** output ${ parent.param_decl() }) {
 
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 
-    size_t output_elems = compute_final_result(set, nr_dpus, output);
+    size_t output_elems = compute_final_result(set, nr_dpus, output, elem_count);
 
     timer_finish();
 

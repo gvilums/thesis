@@ -196,3 +196,35 @@ int main() {
     return 0;
 }
 #endif
+
+#ifdef DEDUP
+int main() {
+    const size_t elem_count = 100 * SIZE_FACTOR;
+    input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
+    uint32_t val = 1;
+    for (size_t i = 0; i < elem_count; ++i) {
+        for (size_t j = 0; j < sizeof(input_0_t); ++j) {
+            input[i][j] = (uint8_t)val;
+            val = (16807 * val) % (~0 - 1);
+        }
+    }
+    output_t* output;
+    size_t result_count = 0;
+    for (int i = 0; i < ITERATIONS; ++i) {
+        result_count = process(&output, input, elem_count);
+    }
+    timer_print_summary();
+    if (result_count != elem_count) {
+        puts("dedup: ERROR (invalid result size)");
+    }
+    for (size_t i = 0; i < elem_count; ++i) {
+        for (size_t j = 1; j < sizeof(input_0_t); ++j) {
+            if (output[i][j] != 0 && output[i][j] == output[i][j - 1]) {
+                puts("dedup: ERROR");
+                return 1;
+            }
+        }
+    }
+    puts("dedup: ok");
+}
+#endif

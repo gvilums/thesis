@@ -1,0 +1,39 @@
+# An example pipeline to be compiled for execution using UPMEM
+
+[pipeline]
+name = "dedup"
+
+[[stages]]
+kind = "input"
+inputs = [
+    "uint8_t[256]",
+]
+
+[[stages]]
+kind = "map"
+output = "uint8_t[256]"
+program = """
+int32_t count = 256;
+memcpy(out_ptr, in_ptr, count);
+for(int32_t i = 1; i < count; i++){
+    uint8_t temp = (*out_ptr)[i];
+    int32_t j = i - 1;
+    while((temp < (*out_ptr)[j]) && j >= 0){
+        (*out_ptr)[j+1] = (*out_ptr)[j];
+        --j;
+    }
+    (*out_ptr)[j + 1] = temp;
+}
+
+uint32_t write_idx = 1;
+for (int32_t i = 1; i < count; ++i) {
+    uint8_t val = (*out_ptr)[i];
+    if (val != (*out_ptr)[i - 1] && i != write_idx) {
+        (*out_ptr)[write_idx] = val;
+        ++write_idx;
+    }
+}
+for (; write_idx < count; ++write_idx) {
+    (*out_ptr)[write_idx] = 0;
+}
+"""

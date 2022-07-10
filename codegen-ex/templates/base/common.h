@@ -18,6 +18,10 @@ typedef ${base} ${name}${bracket + rest};\
 
 typedef uint32_t elem_count_t;
 
+% if "defs" in pipeline:
+${ pipeline["defs"] }
+% endif
+
 % for input_type in in_stage["inputs"]:
 ${ create_typedef(f"input_{ loop.index }_t", input_type) }
 % endfor

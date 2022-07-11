@@ -59,4 +59,7 @@ def main():
     else:
         print("usage: run.py [filename]")
 
-main()
+try:
+    main()
+except KeyboardInterrupt:
+    exit(130)

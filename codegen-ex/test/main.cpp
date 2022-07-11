@@ -15,6 +15,7 @@
 
 #ifdef COMBINE_ADD
 int main() {
+    puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input_0 = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     input_1_t* input_1 = (input_1_t*)malloc(sizeof(input_1_t) * elem_count);
@@ -39,6 +40,7 @@ int main() {
 
 #ifdef HISTOGRAM_SMALL
 int main() {
+    puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
 	uint32_t val = 1;
@@ -59,6 +61,7 @@ int main() {
 
 #ifdef HISTOGRAM_LARGE
 int main() {
+    puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     uint32_t val = 1;
@@ -79,6 +82,7 @@ int main() {
 
 #ifdef FILTER_MULTIPLES
 int main() {
+    puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
@@ -108,6 +112,7 @@ int main() {
 
 #ifdef PRIME_SIEVE
 int main() {
+    puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
@@ -124,6 +129,7 @@ int main() {
 
 #ifdef SUM_REDUCE
 int main() {
+    puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
@@ -145,6 +151,7 @@ int main() {
 
 #ifdef MAP_ONLY
 int main() {
+    puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
@@ -169,6 +176,7 @@ int main() {
 
 #ifdef VECTOR_ADD
 int main() {
+    puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input_0 = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     input_1_t* input_1 = (input_1_t*)malloc(sizeof(input_1_t) * elem_count);
@@ -199,6 +207,7 @@ int main() {
 
 #ifdef DEDUP
 int main() {
+    puts("start test...");
     const size_t elem_count = 30 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     uint32_t val = 1;
@@ -231,6 +240,7 @@ int main() {
 
 #ifdef MAXIMA
 int main() {
+    puts("start test...");
     const size_t elem_count = 500 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     uint32_t val = 1;

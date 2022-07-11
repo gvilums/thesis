@@ -1,10 +1,10 @@
 #!/usr/bin/python3
 
-import os, shutil, sys, subprocess
+import os, shutil, sys, subprocess, argparse
 
 from os.path import join
 
-def run_test(input_file, out_dir, build_dir):
+def run_test(input_file, out_dir, build_dir, size_multiplier: int):
     test_name = os.path.basename(input_file).split(".")[0]
     print(f"testing {test_name}")
 
@@ -23,7 +23,7 @@ def run_test(input_file, out_dir, build_dir):
     args = ["c++"]
 
     args += ["-g", "-O3"]
-    args += [sim_define, f"-D{test_name.upper()}"]
+    args += [sim_define, f"-D{test_name.upper()}", f"-DSIZE_FACTOR={size_multiplier}"]
     args += [upmem_include, f"-I{out_dir}"]
     args += [upmem_link, "-ldpu", "-lpthread"] # -ltbb for std::execution
     args += [join(out_dir, "host.cpp"), "./test/main.cpp"]
@@ -45,15 +45,21 @@ def run_test(input_file, out_dir, build_dir):
 
 
 def main():
-    if len(sys.argv) == 1:
-        for filename in os.listdir("inputs"):
-            run_test(f"inputs/{filename}", "output", "build")
-    elif len(sys.argv) == 2:
-        run_test(f"inputs/{sys.argv[1]}.toml", "output", "build")
-    else:
-        print("usage: run.py [filename]")
+    parser = argparse.ArgumentParser(description="Run map-reduce tests")
+    parser.add_argument('input_files', metavar='file', type=str, nargs='*',
+                    help='an input file to process')
+    parser.add_argument('-s', '--size', dest='size_mult', type=int, action='store', default=10,
+                        help='the multiplier for input sizes')
+
+    args = parser.parse_args()
+    if len(args.input_files) == 0:
+        args.input_files += os.listdir("inputs")
+
+    for filename in args.input_files:
+        run_test(f"inputs/{filename}", "output", "build", args.size_mult)
 
 try:
     main()
 except KeyboardInterrupt:
+    print()
     exit(130)

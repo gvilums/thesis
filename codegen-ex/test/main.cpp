@@ -11,7 +11,9 @@
 // #define MAP_ONLY
 // #define VECTOR_ADD
 
+#ifndef SIZE_FACTOR
 #define SIZE_FACTOR 10
+#endif
 
 #ifdef COMBINE_ADD
 int main() {

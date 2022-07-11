@@ -199,7 +199,7 @@ int main() {
 
 #ifdef DEDUP
 int main() {
-    const size_t elem_count = 100 * SIZE_FACTOR;
+    const size_t elem_count = 30 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     uint32_t val = 1;
     for (size_t i = 0; i < elem_count; ++i) {
@@ -231,7 +231,7 @@ int main() {
 
 #ifdef MAXIMA
 int main() {
-    const size_t elem_count = 100 * SIZE_FACTOR;
+    const size_t elem_count = 500 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     uint32_t val = 1;
     for (size_t i = 0; i < elem_count; ++i) {
@@ -243,13 +243,8 @@ int main() {
         process(&output, input, elem_count);
     }
     timer_print_summary();
-    // for (size_t i = 0; i < elem_count; ++i) {
-    //     for (size_t j = 1; j < sizeof(input_0_t); ++j) {
-    //         if (output[i][j] != 0 && output[i][j] == output[i][j - 1]) {
-    //             puts("dedup: ERROR");
-    //             return 1;
-    //         }
-    //     }
+    // for (int i = 0; i < 128; ++i) {
+    //     printf("%u\n", output[i]);
     // }
     puts("maxima: ok");
 }

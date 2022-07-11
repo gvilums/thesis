@@ -211,7 +211,11 @@ def normalize_config(config):
 
     # default parameters for initial codegen
     config["pipeline"]["nr_tasklets"] = 11
-    config["pipeline"]["reduction_vars"] = 1 # conservatively assume just one reduction variable
+    # assume two reduction variables:
+    # - can't use optimistic estimate, as that may produce linker errors
+    #   for size check
+    # - can't use one, as that excludes reduce_combine from stack analysis
+    config["pipeline"]["reduction_vars"] = 2 
     config["pipeline"]["read_cache_size"] = 512
     config["pipeline"]["write_cache_size"] = 512
 

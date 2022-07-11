@@ -1,0 +1,47 @@
+# An example pipeline to be compiled for execution using UPMEM
+
+[pipeline]
+name = "maxima"
+defs = """
+"""
+constants = [
+    { name = "empty", type = "uint32_t[128]", init = "{}" },
+]
+
+[[stages]]
+kind = "input"
+inputs = ["uint32_t"]
+
+[[stages]]
+kind = "reduce"
+identity = "empty"
+output = "uint32_t[128]"
+program = """
+uint32_t idx = 127;
+while (idx != ~0 && (*out_ptr)[idx] > *in_ptr) {
+    --idx;
+}
+if (idx == ~0) {
+    return;
+}
+for (uint32_t i = 0; i < idx; ++i) {
+    (*out_ptr)[i] = (*out_ptr)[i + 1];
+}
+(*out_ptr)[idx] = *in_ptr;
+"""
+combine = """
+uint32_t tmp[128];
+const uint32_t* in = &(*in_ptr)[0];
+const uint32_t* out = &(*out_ptr)[0];
+
+for (uint32_t i = 0; i < 128; ++i) {
+    if (*in > *out) {
+        tmp[i] = *in;
+        ++in;
+    } else {
+        tmp[i] = *out; 
+        ++out;
+    }
+}
+memcpy(out_ptr, &tmp[0], sizeof(tmp));
+"""

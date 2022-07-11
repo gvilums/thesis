@@ -35,15 +35,9 @@ def run_test(input_file, out_dir, build_dir):
         compile_result.check_returncode()
 
     os.chdir(build_dir)
-    result = subprocess.run("./host", capture_output=True)
+    result = subprocess.run("./host", stderr=subprocess.DEVNULL)
     if result.returncode != 0:
         print("ERROR while running program:")
-        print(" ---- stderr ----")
-        print(result.stderr.decode("utf8"))
-        print(" ---- stdout ----")
-        print(result.stdout.decode("utf8"))
-    else:
-        print(result.stdout.decode("utf8"))
     os.chdir("..")
 
     print()

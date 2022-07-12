@@ -4,11 +4,11 @@ import os, shutil, sys, subprocess, argparse
 
 from os.path import join
 
-def run_test(input_file, out_dir, build_dir, size_multiplier: int):
+def run_test(input_file, out_dir, build_dir, size_multiplier: int, opt_level: int):
     test_name = os.path.basename(input_file).split(".")[0]
     print(f"testing {test_name}")
 
-    subprocess.run(["python3.11", "pipeline.py", input_file, out_dir], check=True)
+    subprocess.run(["python3.11", "pipeline.py", input_file, out_dir, str(opt_level)], check=True)
     shutil.copy(join(out_dir, "device"), join(build_dir, "device"))
 
     if os.path.exists("/usr/local/upmem"):
@@ -48,15 +48,17 @@ def main():
     parser = argparse.ArgumentParser(description="Run map-reduce tests")
     parser.add_argument('input_files', metavar='file', type=str, nargs='*',
                     help='an input file to process')
-    parser.add_argument('-s', '--size', dest='size_mult', type=int, action='store', default=10,
-                        help='the multiplier for input sizes')
+    parser.add_argument('-s', '--size', dest='size_exp', type=int, action='store', default=10,
+                        help='the exponent of the input size scale')
+    parser.add_argument('-O', '--optimize', dest='opt', type=int, action='store', default=2,
+                        help='the optimization level for dpu programs')
 
     args = parser.parse_args()
     if len(args.input_files) == 0:
         args.input_files += os.listdir("inputs")
 
     for filename in args.input_files:
-        run_test(f"inputs/{filename}", "output", "build", args.size_mult)
+        run_test(f"inputs/{filename}", "output", "build", int(10 ** args.size_exp), args.opt)
 
 try:
     main()

@@ -11,12 +11,13 @@ import math
 
 
 def main():
-    if len(sys.argv) != 3:
-        print(f"usage: {sys.argv[0]} <configuration file> <output directory>")
+    if len(sys.argv) != 4:
+        print(f"usage: {sys.argv[0]} <configuration file> <output directory> <opt level>")
         return
 
     config_name = sys.argv[1]
     output_dir = sys.argv[2]
+    opt_level = int(sys.argv[3])
     lookup = TemplateLookup(directories=["templates/base", "templates/reduce", "templates/noreduce", "templates/util"])
 
     config = read_config(config_name)
@@ -33,11 +34,11 @@ def main():
 
     size_info = compute_size_info(config, lookup, base_code)
     if config["stages"][-1]["kind"] == "reduce":
-        params = optimize_reduce_params(size_info)
+        params = optimize_reduce_params(size_info, opt_level)
     else:
-        params = optimize_noreduce_params(size_info)
+        params = optimize_noreduce_params(size_info, opt_level)
 
-    # print(params)
+    print(params)
     # print(size_info)
 
     params.apply_to(config)
@@ -255,7 +256,7 @@ def compute_size_info(config, lookup: TemplateLookup, code: CodegenOutput) -> Si
         return SizeInformation(stack_size, global_sizes, constant_sizes, input_sizes, output_size)
 
 
-def optimize_reduce_params(sizes: SizeInformation) -> ReduceConfigParams:
+def optimize_reduce_params(sizes: SizeInformation, opt_level: int) -> ReduceConfigParams:
     if max(sizes.input_sizes) > 1024:
         raise "input element too large"
 
@@ -263,6 +264,29 @@ def optimize_reduce_params(sizes: SizeInformation) -> ReduceConfigParams:
 
     base_size = pow(2, 16)  # default WRAM size is 64KB == 2^16 B
     base_size -= sum(sizes.global_sizes) + sum(sizes.constant_sizes) + 2048
+
+    if 0 <= opt_level <= 1:
+        try:
+
+            input_buf_size = max(
+                pow(2, math.ceil(math.log2(max(sizes.input_sizes)))), 256)
+            reduction_var_count = min((base_size - 11 * (sizes.stack_size +
+                                input_buf_size * num_inputs)) // sizes.output_size, 11)
+
+            if opt_level == 0:
+                # naive approach: if we can't fit all reduction variables, just use a single one
+                if 0 < reduction_var_count < 11:
+                    reduction_var_count = 1
+
+            if reduction_var_count >= 1:
+                return ReduceConfigParams(11, reduction_var_count, input_buf_size)
+
+        except:
+            pass
+
+        raise "unable to configure program parameters"
+
+    # This is the maximum optimization case
 
     try:
 
@@ -300,7 +324,7 @@ def optimize_reduce_params(sizes: SizeInformation) -> ReduceConfigParams:
     raise "unable to configure program parameters"
 
 
-def optimize_noreduce_params(sizes: SizeInformation) -> NoreduceConfigParams:
+def optimize_noreduce_params(sizes: SizeInformation, opt_level: int) -> NoreduceConfigParams:
     if max(sizes.input_sizes) > 1024:
         raise "input element too large"
 
@@ -308,6 +332,25 @@ def optimize_noreduce_params(sizes: SizeInformation) -> NoreduceConfigParams:
 
     base_size = pow(2, 16)  # default WRAM size is 64KB == 2^16 B
     base_size -= sum(sizes.global_sizes) + sum(sizes.constant_sizes) + 2048
+
+    # low or no optimization (equivalent in this case)
+    if 0 <= opt_level <= 1:
+        try:
+
+            buf_size = max(
+                pow(2, math.ceil(math.log2(max(sizes.input_sizes)))), 256)
+
+            if buf_size >= 32 and all(map(lambda x: x <= buf_size, sizes.input_sizes + [sizes.output_size])):
+                return NoreduceConfigParams(11, buf_size, buf_size)
+        
+        except:
+            pass
+
+        # TODO: in case the buffers don't fit, try reducing number of tasklets
+
+        raise "unable to configure program parameters"
+
+    # full optimization
 
     try:
 

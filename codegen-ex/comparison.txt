@@ -1,0 +1,47 @@
+Naive baseline:
+- 11 Tasklets to fill pipeline
+- Use default read/write buffer sizes (256), except if inputs require larger size
+- optionally:
+    - Use one reduction var per tasklet if they all fit into WRAM, else one global one with mutex
+    - Use optimal approach for number of reduction variables
+
+
+
+
+
+
+Thesis text outline:
+- Introduction to the problem
+    - PIM architectures are becoming more relevant
+    - Programming PIM has not really been explored yet
+    - UPMEM is a real pim architecture with a defined programming model,
+      but even that is quite complicated and cumbersome for defining relatively simple operations
+        - Have to handle various architectural details
+- Core question: Can we explore higher-level programming models on PIM architectures (or, more specifically, UPMEM)?
+- Architecture Background:
+    - What is PIM all about?
+    - What PIM architectures are there?
+    - Why UPMEM?
+        - Exists and can be benchmarked
+        - Defined low-level programming interface
+    - Core characteristics of UPMEM architecture
+        - refer to PrIM paper
+- Programming Model:
+    - What kinds of programming models for parallel computation are there?
+    - Why choose MapReduce?
+        - Relatively straight-forward and easy to understand/program
+        - Fits upmem architecture quite well (due to lack of inter-dpu communication)
+    - What althernative choices might have made sense?
+- Implementation:
+    - Describe code generator approach
+    - Explore optimizations / choosing best possible size parameters
+    - What could be done better with more time? 
+        - Better toolchain integration (heterogeneous compilation)
+        - ...
+    - What are limitations of the UPMEM toolchain?
+- Evaluation:
+    - Compare to hand-written PrIM benchmarks for applicable programs
+        - sum, histogram-small, histogram-large, select (any others?)
+    - Compare optimizations against internal benchmarks
+    - Transfer overheads due to toolchain limtations
+- Conclusion

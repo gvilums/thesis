@@ -6,9 +6,9 @@ from os.path import join
 
 def run_test(input_file, out_dir, build_dir, size_multiplier: int, opt_level: int):
     test_name = os.path.basename(input_file).split(".")[0]
-    print(f"testing {test_name}")
+    # print(f"testing {test_name}")
 
-    subprocess.run(["python3.11", "pipeline.py", input_file, out_dir, str(opt_level)], check=True)
+    subprocess.run(["python3", "pipeline.py", input_file, out_dir, str(opt_level)], check=True)
     shutil.copy(join(out_dir, "device"), join(build_dir, "device"))
 
     if os.path.exists("/usr/local/upmem"):
@@ -23,7 +23,7 @@ def run_test(input_file, out_dir, build_dir, size_multiplier: int, opt_level: in
     args = ["c++"]
 
     args += ["-g", "-O3"]
-    args += [sim_define, f"-D{test_name.upper()}", f"-DSIZE_FACTOR={size_multiplier}"]
+    args += [sim_define, f"-D{test_name.upper()}", f"-DSIZE_FACTOR={size_multiplier}", "-DPRINT_CSV"]
     args += [upmem_include, f"-I{out_dir}"]
     args += [upmem_link, "-ldpu", "-lpthread"] # -ltbb for std::execution
     args += [join(out_dir, "host.cpp"), "./test/main.cpp"]
@@ -37,10 +37,11 @@ def run_test(input_file, out_dir, build_dir, size_multiplier: int, opt_level: in
     os.chdir(build_dir)
     result = subprocess.run("./host", stderr=subprocess.DEVNULL)
     if result.returncode != 0:
-        print("ERROR while running program:")
+        print(f"ERROR while running test {test_name}")
+        result.check_returncode()
     os.chdir("..")
 
-    print()
+    # print()
 
 
 
@@ -57,6 +58,8 @@ def main():
     if len(args.input_files) == 0:
         args.input_files += os.listdir("inputs")
 
+    print("name, transfer_to_dpu, dpu_run, transfer_from_dpu, final_combine, total")
+    sys.stdout.flush()
     for filename in args.input_files:
         run_test(f"inputs/{filename}", "output", "build", int(10 ** args.size_exp), args.opt)
 

@@ -17,7 +17,7 @@
 
 #ifdef COMBINE_ADD
 int main() {
-    puts("start test...");
+    // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input_0 = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     input_1_t* input_1 = (input_1_t*)malloc(sizeof(input_1_t) * elem_count);
@@ -30,11 +30,15 @@ int main() {
     for (int i = 0; i < ITERATIONS; ++i) {
         process(&output, input_0, input_1, elem_count, &global_0);
     }
+
+    printf("combine_add, ");
     timer_print_summary();
+
     if (output == 4 * elem_count) {
-        puts("sum_reduce: ok");
+        // puts("sum_reduce: ok");
+        return 0;
     } else {
-        puts("sum_reduce: ERROR");
+        // puts("sum_reduce: ERROR");
         return 1;
     }
 }
@@ -42,7 +46,7 @@ int main() {
 
 #ifdef HISTOGRAM_SMALL
 int main() {
-    puts("start test...");
+    // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
 	uint32_t val = 1;
@@ -54,16 +58,20 @@ int main() {
     for (int i = 0; i < ITERATIONS; ++i) {
         process(&output, input, elem_count);
     }
+
+    printf("histogram_small, ");
     timer_print_summary();
+
     // for (uint32_t i = 0; i < 256; ++i) {
         // printf("%u: %u\n", i, output[i]);
     // }
+    return 0;
 }
 #endif
 
 #ifdef HISTOGRAM_LARGE
 int main() {
-    puts("start test...");
+    // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     uint32_t val = 1;
@@ -75,7 +83,10 @@ int main() {
     for (int i = 0; i < ITERATIONS; ++i) {
         process(&output, input, elem_count);
     }
+
+    printf("histogram_large, ");
     timer_print_summary();
+
     // for (uint32_t i = 0; i < 2048; ++i) {
     //     printf("%u: %u\n", i, output[i]);
     // }
@@ -84,7 +95,7 @@ int main() {
 
 #ifdef FILTER_MULTIPLES
 int main() {
-    puts("start test...");
+    // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
@@ -97,7 +108,10 @@ int main() {
     for (int i = 0; i < ITERATIONS; ++i) {
         result_count = process(&output, input, elem_count, &factor);
     }
+
+    printf("filter_multiples, ");
     timer_print_summary();
+
     for (uint64_t i = 0; i < result_count; ++i) {
         if (output[i] != i * factor) {
             printf("expected %lu, got %lu\n", factor * i, output[i]);
@@ -105,16 +119,18 @@ int main() {
         }
     }
     if (err) {
-        puts("filter_multiples: ERROR");
+        return 1;
+        // puts("filter_multiples: ERROR");
     } else {
-        puts("filter_multiples: ok");
+        return 0;
+        // puts("filter_multiples: ok");
     }
 }
 #endif
 
 #ifdef PRIME_SIEVE
 int main() {
-    puts("start test...");
+    // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
@@ -125,13 +141,16 @@ int main() {
     for (int i = 0; i < ITERATIONS; ++i) {
         result_count = process(&output, input, elem_count);
     }
+
+    printf("prime_sieve, ");
     timer_print_summary();
+
 }
 #endif
 
 #ifdef SUM_REDUCE
 int main() {
-    puts("start test...");
+    // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
@@ -141,11 +160,15 @@ int main() {
     for (int i = 0; i < ITERATIONS; ++i) {
         process(&output, input, elem_count);
     }
+
+    printf("sum_reduce, ");
     timer_print_summary();
+
     if (output == elem_count) {
-        puts("sum_reduce: ok");
+        // puts("sum_reduce: ok");
+        return 0;
     } else {
-        puts("sum_reduce: ERROR");
+        // puts("sum_reduce: ERROR");
         return 1;
     }
 }
@@ -153,7 +176,7 @@ int main() {
 
 #ifdef MAP_ONLY
 int main() {
-    puts("start test...");
+    // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (int i = 0; i < elem_count; ++i) {
@@ -165,20 +188,24 @@ int main() {
     for (int i = 0; i < ITERATIONS; ++i) {
         result_count = process(&output, input, elem_count, &factor);
     }
+
+    printf("map_only, ");
     timer_print_summary();
+
     for (uint32_t i = 0; i < result_count; ++i) {
         if (output[i] != i * factor) {
-            puts("map_only: ERROR");
+            // puts("map_only: ERROR");
             return 1;
         }
     }
-    puts("map_only: ok");
+    // puts("map_only: ok");
+    return 0;
 }
 #endif
 
 #ifdef VECTOR_ADD
 int main() {
-    puts("start test...");
+    // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input_0 = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     input_1_t* input_1 = (input_1_t*)malloc(sizeof(input_1_t) * elem_count);
@@ -191,25 +218,28 @@ int main() {
     for (int i = 0; i < ITERATIONS; ++i) {
         count = process(&output, input_0, input_1, elem_count);
     }
+
+    printf("vector_add, ");
     timer_print_summary();
+
 	if (count != elem_count) {
-		puts("vector_add: ERROR");
+		// puts("vector_add: ERROR");
 		return 1;
 	}
     for (size_t i = 0; i < count; ++i) {
         if (output[i] != 3) {
-            puts("vector_add: ERROR");
+            // puts("vector_add: ERROR");
             return 1;
         }
     }
-	puts("vector_add: ok");
+	// puts("vector_add: ok");
     return 0;
 }
 #endif
 
 #ifdef DEDUP
 int main() {
-    puts("start test...");
+    // puts("start test...");
     const size_t elem_count = 30 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     uint32_t val = 1;
@@ -224,25 +254,30 @@ int main() {
     for (int i = 0; i < ITERATIONS; ++i) {
         result_count = process(&output, input, elem_count);
     }
+
+    printf("dedup, ");
     timer_print_summary();
+
     if (result_count != elem_count) {
-        puts("dedup: ERROR (invalid result size)");
+        return 1;
+        // puts("dedup: ERROR (invalid result size)");
     }
     for (size_t i = 0; i < elem_count; ++i) {
         for (size_t j = 1; j < sizeof(input_0_t); ++j) {
             if (output[i][j] != 0 && output[i][j] == output[i][j - 1]) {
-                puts("dedup: ERROR");
+                // puts("dedup: ERROR");
                 return 1;
             }
         }
     }
-    puts("dedup: ok");
+    // puts("dedup: ok");
+    return 0;
 }
 #endif
 
 #ifdef MAXIMA
 int main() {
-    puts("start test...");
+    // puts("start test...");
     const size_t elem_count = 500 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     uint32_t val = 1;
@@ -254,10 +289,11 @@ int main() {
     for (int i = 0; i < ITERATIONS; ++i) {
         process(&output, input, elem_count);
     }
+
+    printf("maxima, ");
     timer_print_summary();
-    // for (int i = 0; i < 128; ++i) {
-    //     printf("%u\n", output[i]);
-    // }
-    puts("maxima: ok");
+
+    // puts("maxima: ok");
+    return 0;
 }
 #endif

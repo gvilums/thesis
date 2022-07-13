@@ -1,7 +1,7 @@
 from mako.template import Template
 from mako.lookup import TemplateLookup
 from enum import Enum
-import tomllib
+import tomli
 import sys
 import dataclasses
 import subprocess
@@ -38,7 +38,7 @@ def main():
     else:
         params = optimize_noreduce_params(size_info, opt_level)
 
-    print(params)
+    # print(params)
     # print(size_info)
 
     params.apply_to(config)
@@ -105,7 +105,7 @@ class NoreduceConfigParams:
 
 def read_config(filename: str):
     with open(filename, "rb") as f:
-        return tomllib.load(f)
+        return tomli.load(f)
 
 
 def compute_input_indices(stages):

@@ -166,10 +166,14 @@ void timer_print_summary(void) {
         total += compute_micro_time_delta(&global_timer.times[j][0], &global_timer.times[j][4]);
     }
     total /= ITERATIONS;
+#ifdef PRINT_CSV
+    printf("%lf, %lf, %lf, %lf, %lf\n", avg_times[0], avg_times[1], avg_times[2], avg_times[3], total);
+#else
     printf("cpu -> dpu transfer %15lf us\n", avg_times[0]);
     printf("dpu execution       %15lf us\n", avg_times[1]);
     printf("dpu -> cpu transfer %15lf us\n", avg_times[2]);
     printf("cpu final combine   %15lf us\n", avg_times[3]);
 	printf("--------------------------------------\n");
     printf("total time          %15lf us\n", total);
+#endif
 }

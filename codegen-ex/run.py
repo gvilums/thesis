@@ -8,7 +8,7 @@ def run_test(input_file, out_dir, build_dir, size_multiplier: int, opt_level: in
     test_name = os.path.basename(input_file).split(".")[0]
     # print(f"testing {test_name}")
 
-    subprocess.run(["python3", "pipeline.py", input_file, out_dir, str(opt_level)], check=True)
+    subprocess.run(["python3.11", "pipeline.py", input_file, out_dir, str(opt_level)], check=True)
     shutil.copy(join(out_dir, "device"), join(build_dir, "device"))
 
     if os.path.exists("/usr/local/upmem"):

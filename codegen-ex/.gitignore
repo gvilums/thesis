@@ -7,3 +7,4 @@ output/
 # MacOS Cache
 .DS_Store
 out.txt
+*.png

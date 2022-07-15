@@ -1,3 +1,0 @@
-name, cpu -> dpu, dpu compute, dpu -> cpu, combine, total
-histogram_large, 2120.930000, 2654213.180000, 1058.270000, 13.660000, 2657406.040000
-histogram_small, 2309.580000, 832922.380000, 1142.200000, 14.500000, 836388.660000

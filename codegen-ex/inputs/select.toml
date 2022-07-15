@@ -1,0 +1,13 @@
+[pipeline]
+name = "select"
+
+[[stages]]
+kind = "input"
+inputs = ["uint64_t"]
+
+[[stages]]
+# filters data elements by a predicate
+kind = "filter"
+program = """
+return *in_ptr % 2 == 0;
+""" 

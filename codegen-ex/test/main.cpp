@@ -21,13 +21,13 @@ int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input_0 = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     input_1_t* input_1 = (input_1_t*)malloc(sizeof(input_1_t) * elem_count);
-    for (int i = 0; i < elem_count; ++i) {
+    for (size_t i = 0; i < elem_count; ++i) {
         input_0[i] = 1;
         input_1[i] = 2;
     }
     uint32_t global_0 = 1;
     reduction_out_t output;
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (size_t i = 0; i < ITERATIONS; ++i) {
         process(&output, input_0, input_1, elem_count, &global_0);
     }
 
@@ -50,12 +50,12 @@ int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
 	uint32_t val = 1;
-    for (int i = 0; i < elem_count; ++i) {
+    for (size_t i = 0; i < elem_count; ++i) {
         input[i] = val;
 		val = (16807 * val) % (~0 - 1);
     }
     reduction_out_t output;
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (size_t i = 0; i < ITERATIONS; ++i) {
         process(&output, input, elem_count);
     }
 
@@ -80,7 +80,7 @@ int main() {
         val = (16807 * val) % (~0 - 1);
     }
     reduction_out_t output;
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (size_t i = 0; i < ITERATIONS; ++i) {
         process(&output, input, elem_count);
     }
 
@@ -93,19 +93,53 @@ int main() {
 }
 #endif
 
+#ifdef SELECT
+int main() {
+    // puts("start test...");
+    const size_t elem_count = 1000 * SIZE_FACTOR;
+    input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
+    for (size_t i = 0; i < elem_count; ++i) {
+        input[i] = i;
+    }
+    output_t* output;
+    size_t result_count = 0;
+    int err = 0;
+    for (size_t i = 0; i < ITERATIONS; ++i) {
+        result_count = process(&output, input, elem_count);
+    }
+
+    printf("filter_multiples, ");
+    timer_print_summary();
+
+    for (uint64_t i = 0; i < result_count; ++i) {
+        if (output[i] != i * 2) {
+            printf("expected %lu, got %lu\n", 2 * i, output[i]);
+            ++err;
+        }
+    }
+    if (err) {
+        return 1;
+        // puts("filter_multiples: ERROR");
+    } else {
+        return 0;
+        // puts("filter_multiples: ok");
+    }
+}
+#endif
+
 #ifdef FILTER_MULTIPLES
 int main() {
     // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
-    for (int i = 0; i < elem_count; ++i) {
+    for (size_t i = 0; i < elem_count; ++i) {
         input[i] = i;
     }
     output_t* output;
     uint32_t factor = 2;
     size_t result_count = 0;
     int err = 0;
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (size_t i = 0; i < ITERATIONS; ++i) {
         result_count = process(&output, input, elem_count, &factor);
     }
 
@@ -133,12 +167,12 @@ int main() {
     // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
-    for (int i = 0; i < elem_count; ++i) {
+    for (size_t i = 0; i < elem_count; ++i) {
         input[i] = i;
     }
     output_t* output;
     size_t result_count = 0;
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (size_t i = 0; i < ITERATIONS; ++i) {
         result_count = process(&output, input, elem_count);
     }
 
@@ -153,11 +187,11 @@ int main() {
     // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
-    for (int i = 0; i < elem_count; ++i) {
+    for (size_t i = 0; i < elem_count; ++i) {
         input[i] = 1;
     }
     reduction_out_t output;
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (size_t i = 0; i < ITERATIONS; ++i) {
         process(&output, input, elem_count);
     }
 
@@ -179,13 +213,13 @@ int main() {
     // puts("start test...");
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
-    for (int i = 0; i < elem_count; ++i) {
+    for (size_t i = 0; i < elem_count; ++i) {
         input[i] = i;
     }
     output_t* output;
     global_0_t factor = 2;
     size_t result_count = 0;
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (size_t i = 0; i < ITERATIONS; ++i) {
         result_count = process(&output, input, elem_count, &factor);
     }
 
@@ -209,13 +243,13 @@ int main() {
     const size_t elem_count = 1000 * SIZE_FACTOR;
     input_0_t* input_0 = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     input_1_t* input_1 = (input_1_t*)malloc(sizeof(input_1_t) * elem_count);
-    for (int i = 0; i < elem_count; ++i) {
+    for (size_t i = 0; i < elem_count; ++i) {
         input_0[i] = 1;
         input_1[i] = 2;
     }
     size_t count = 0;
     output_t* output;
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (size_t i = 0; i < ITERATIONS; ++i) {
         count = process(&output, input_0, input_1, elem_count);
     }
 
@@ -251,7 +285,7 @@ int main() {
     }
     output_t* output;
     size_t result_count = 0;
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (size_t i = 0; i < ITERATIONS; ++i) {
         result_count = process(&output, input, elem_count);
     }
 
@@ -286,7 +320,7 @@ int main() {
         val = (16807 * val) % (~0 - 1);
     }
     output_t output;
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (size_t i = 0; i < ITERATIONS; ++i) {
         process(&output, input, elem_count);
     }
 

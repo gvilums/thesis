@@ -37,23 +37,31 @@ static unsigned int* histo;
 // Create input arrays
 static void read_input(T* A, const Params p) {
 
-    char  dctFileName[100];
-    FILE *File = NULL;
+    // char  dctFileName[100];
+    // FILE *File = NULL;
 
-    // Open input file
-    unsigned short temp;
-    sprintf(dctFileName, p.file_name);
-    if((File = fopen(dctFileName, "rb")) != NULL) {
-        for(unsigned int y = 0; y < p.input_size; y++) {
-            fread(&temp, sizeof(unsigned short), 1, File);
-            A[y] = (unsigned int)ByteSwap16(temp);
-            if(A[y] >= 4096)
-                A[y] = 4095;
+    // // Open input file
+    // unsigned short temp;
+    // sprintf(dctFileName, p.file_name);
+    // if((File = fopen(dctFileName, "rb")) != NULL) {
+    //     for(unsigned int y = 0; y < p.input_size; y++) {
+    //         fread(&temp, sizeof(unsigned short), 1, File);
+    //         A[y] = (unsigned int)ByteSwap16(temp);
+    //         if(A[y] >= 4096)
+    //             A[y] = 4095;
+    //     }
+    //     fclose(File);
+    // } else {
+    //     printf("%s does not exist\n", dctFileName);
+    //     exit(1);
+    // }
+    uint32_t val = 1;
+    for (uint32_t i = 0; i < p.input_size; ++i) {
+        A[i] = (unsigned int)ByteSwap16(val);
+        if (A[i] >= 4096) {
+            A[i] = 4095;
         }
-        fclose(File);
-    } else {
-        printf("%s does not exist\n", dctFileName);
-        exit(1);
+        val = (16807 * val) % (~0 - 1);
     }
 }
 

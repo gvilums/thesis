@@ -9,3 +9,4 @@ output/
 out.txt
 *.png
 *.iml
+*bin/

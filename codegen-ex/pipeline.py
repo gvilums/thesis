@@ -8,7 +8,14 @@ import subprocess
 import re
 import tempfile
 import math
+import os
 
+if os.path.exists("/usr/local/upmem/bin"):
+    dpu_compiler = "/usr/local/upmem/bin/dpu-upmem-dpurte-clang"
+    dpu_stack_analyzer = "/usr/local/upmem/bin/dpu_stack_analyzer"
+else:
+    dpu_compiler = "dpu-upmem-dpurte-clang"
+    dpu_stack_analyzer = "dpu_stack_analyzer"
 
 def main():
     if len(sys.argv) != 4:
@@ -45,7 +52,7 @@ def main():
 
     final_code = generator(config, lookup)
     final_code.output_to(output_dir)
-    subprocess.run(["dpu-upmem-dpurte-clang", f"-DSTACK_SIZE_DEFAULT={size_info.stack_size}",
+    subprocess.run([dpu_compiler, f"-DSTACK_SIZE_DEFAULT={size_info.stack_size}",
                    f"-DNR_TASKLETS={params.nr_tasklets}", "-g", "-O2", f"{output_dir}/device.c", "-o", f"{output_dir}/device"], check=True)
 
 
@@ -237,10 +244,10 @@ def compute_size_info(config, lookup: TemplateLookup, code: CodegenOutput) -> Si
             f.write(size_info_template.render(num_inputs=num_inputs,
                     num_globals=num_globals, num_constants=num_constants))
 
-        subprocess.run(["dpu-upmem-dpurte-clang", "-DSTACK_SIZE_DEFAULT=256", "-DNR_TASKLETS=16",
+        subprocess.run([dpu_compiler, "-DSTACK_SIZE_DEFAULT=256", "-DNR_TASKLETS=16",
                        "-g", "-O2", f"{tmpdir}/device.c", "-o", f"{tmpdir}/device"], check=True)
         stack_analysis_output = subprocess.run(
-            ["dpu_stack_analyzer", f"{tmpdir}/device"], capture_output=True).stdout.decode("utf8")
+            [dpu_stack_analyzer, f"{tmpdir}/device"], capture_output=True).stdout.decode("utf8")
         stack_size_re_res = re.search(r"Max size: (\d+)\n", stack_analysis_output)
         # align stack size to 8 bytes
         stack_size = ((int(stack_size_re_res.group(1)) - 1) | 7) + 1

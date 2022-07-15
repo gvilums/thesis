@@ -8,3 +8,4 @@ output/
 .DS_Store
 out.txt
 *.png
+*.iml

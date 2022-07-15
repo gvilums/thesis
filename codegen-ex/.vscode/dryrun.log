@@ -1,0 +1,6 @@
+make --dry-run --keep-going --print-directory
+make: Entering directory '/home/gvilums/uni/thesis/codegen-ex'
+make: Leaving directory '/home/gvilums/uni/thesis/codegen-ex'
+ 
+make: *** No targets specified and no makefile found.  Stop.
+

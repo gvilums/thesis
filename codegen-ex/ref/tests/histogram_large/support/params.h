@@ -33,7 +33,7 @@ static void usage() {
 struct Params input_params(int argc, char **argv) {
     struct Params p;
     p.input_size    = 1536 * 1024;
-    p.bins          = 256;
+    p.bins          = 2048;
     p.n_warmup      = 1;
     p.n_reps        = 3;
     p.exp           = 1;

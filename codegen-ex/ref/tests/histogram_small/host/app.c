@@ -101,6 +101,7 @@ int main(int argc, char **argv) {
     DPU_ASSERT(dpu_load(dpu_set, DPU_BINARY, NULL));
     DPU_ASSERT(dpu_get_nr_dpus(dpu_set, &nr_of_dpus));
     // printf("Allocated %d DPU(s)\n", nr_of_dpus);
+    p.input_size = (p.input_size / nr_of_dpus) * nr_of_dpus;
 
     unsigned int i = 0;
     unsigned int input_size; // Size of input image

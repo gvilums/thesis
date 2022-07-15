@@ -108,7 +108,7 @@ int main() {
         result_count = process(&output, input, elem_count);
     }
 
-    printf("filter_multiples, ");
+    printf("select, ");
     timer_print_summary();
 
     for (uint64_t i = 0; i < result_count; ++i) {
@@ -165,7 +165,7 @@ int main() {
 #ifdef PRIME_SIEVE
 int main() {
     // puts("start test...");
-    const size_t elem_count = 1000 * SIZE_FACTOR;
+    const size_t elem_count = 10 * SIZE_FACTOR;
     input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
     for (size_t i = 0; i < elem_count; ++i) {
         input[i] = i;

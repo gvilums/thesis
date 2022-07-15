@@ -49,7 +49,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run map-reduce tests")
     parser.add_argument('input_files', metavar='file', type=str, nargs='*',
                     help='an input file to process')
-    parser.add_argument('-s', '--size', dest='size_exp', type=int, action='store', default=3,
+    parser.add_argument('-s', '--size', dest='size_exp', type=int, action='store', default=2,
                         help='the exponent of the input size scale')
     parser.add_argument('-O', '--optimize', dest='opt', type=int, action='store', default=2,
                         help='the optimization level for dpu programs')

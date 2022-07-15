@@ -105,12 +105,13 @@ int main(int argc, char **argv) {
     unsigned int i = 0;
     unsigned int input_size; // Size of input image
     unsigned int dpu_s = p.dpu_s;
-    if(p.exp == 0)
+    if(p.exp == 0) {
         input_size = p.input_size * nr_of_dpus; // Size of input image
-    else if(p.exp == 1)
+    } else if(p.exp == 1) {
         input_size = p.input_size; // Size of input image
-	else
+    } else {
         input_size = p.input_size * dpu_s; // Size of input image
+    }
 
     const unsigned int input_size_8bytes = 
         ((input_size * sizeof(T)) % 8) != 0 ? roundup(input_size, 8) : input_size; // Input size per DPU (max.), 8-byte aligned

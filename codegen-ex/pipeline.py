@@ -45,9 +45,6 @@ def main():
     else:
         params = optimize_noreduce_params(size_info, opt_level)
 
-    # print(params)
-    # print(size_info)
-
     params.apply_to(config)
 
     final_code = generator(config, lookup)
@@ -115,8 +112,13 @@ def read_config(filename: str):
         return tomli.load(f)
 
 
+# For each stage, computes the index of the stage where the input data
+# will come from. This is not always the previous stage, as a "filter"
+# stage is skipped
 def compute_input_indices(stages):
     stages[0]["input_idx"] = -1
+    # keep track of the last "stable" state, which is a state which actually
+    # produces an output
     last_stable = -1
     for prev_idx, stage in enumerate(stages[1:]):
         if stages[prev_idx]["kind"] != "filter":
@@ -124,11 +126,19 @@ def compute_input_indices(stages):
         stage["input_idx"] = last_stable
 
 
+# For convenience in the templates, give all stages an index
 def index_stages(stages):
     for idx, stage in enumerate(stages):
         stage["id"] = idx
 
 
+# This function is used for computing various information related to filter
+# stages. This constitutes:
+# - Figuring out if there even is a filter stage (as an absence of filters simplifies
+#   various aspects of code generation)
+# - If there is a filter stage, finding and marking the last one. This is necessary
+#   to allow early termination when computing whether elements are included in the
+#   output or not
 def compute_filter_info(config):
     contains_filter = False
     for stage in config["stages"]:
@@ -146,16 +156,20 @@ def compute_filter_info(config):
 
 def create_reduce_pipeline(config, lookup: TemplateLookup) -> CodegenOutput:
 
+    # Load templates required to create reduce pipeline
     device_code_template = lookup.get_template("device_reduce.c")
     common_header_template = lookup.get_template("common_reduce.h")
     host_code_template = lookup.get_template("host_reduce.cpp")
     host_header_template = lookup.get_template("host_reduce.hpp")
 
+    # Extract relevant parameters which will be passed to the templates
     pipeline = config["pipeline"]
     in_stage = config["stages"][0]
+    # "stages" refers to all stages except for the final reduction stage
     stages = config["stages"][1:len(config["stages"]) - 1]
     reduction = config["stages"][-1]
 
+    # generate code by instantiating templates
     device_code = device_code_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
     common_header = common_header_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
     host_code = host_code_template.render(pipeline=pipeline, stages=stages, reduction=reduction, in_stage=in_stage)
@@ -183,37 +197,48 @@ def create_noreduce_pipeline(config, lookup: TemplateLookup) -> CodegenOutput:
     return CodegenOutput(device_code, common_header, host_code, host_header)
 
 
+# This function is used to prepare a raw config (which is parsed directly
+# from a toml file) to be usable for code generation
 def normalize_config(config):
+    # sanity checks
     assert "pipeline" in config
     assert len(config["stages"]) > 0
 
+    # Variable to keep track if we're dealing with a reduction pipeline or not.
     has_reduce = False
 
     assert "stages" in config
     for i, stage in enumerate(config["stages"]):
         assert "kind" in stage
         if i == 0:
+            # first stage must be input
             assert stage["kind"] == "input"
             assert "inputs" in stage
             assert len(stage["inputs"]) >= 1
             if "program" not in stage:
+                # for trivial input stages, fill in program
                 assert len(stage["inputs"]) == 1
                 stage["program"] = "memcpy(out_ptr, in_ptr_0, sizeof(*out_ptr));\n"
             if "output" not in stage:
+                # for trivial input stages, output is same as input
                 assert len(stage["inputs"]) == 1
                 stage["output"] = stage["inputs"][0]
         else:
             assert stage["kind"] in ["map", "filter", "reduce"]
         if stage["kind"] == "reduce":
             has_reduce = True
+            # reduce must be last stage
             assert i == len(config["stages"]) - 1
 
+    # Add a dummy output stage if we don't reduce. This is convenient for indexing
     if not has_reduce:
         config["stages"].append({"kind": "output"})
 
+    # If no globals, create dummy empty list
     if "globals" not in config["pipeline"]:
         config["pipeline"]["globals"] = []
 
+    # If no constants, create dummy empty list
     if "constants" not in config["pipeline"]:
         config["pipeline"]["constants"] = []
 
@@ -233,6 +258,7 @@ def normalize_config(config):
     compute_filter_info(config)
 
 
+# Given some generated code, computes all relevant size information
 def compute_size_info(config, lookup: TemplateLookup, code: CodegenOutput) -> SizeInformation:
     size_info_template = lookup.get_template("size_info.c")
     num_inputs = len(config["stages"][0]["inputs"])
@@ -244,14 +270,18 @@ def compute_size_info(config, lookup: TemplateLookup, code: CodegenOutput) -> Si
             f.write(size_info_template.render(num_inputs=num_inputs,
                     num_globals=num_globals, num_constants=num_constants))
 
+        # First, compile the dpu binary. This is necessary to run dpu_stack_analyzer, which finds the
+        # Maximum possible necessary stack size used by the dpu program
         subprocess.run([dpu_compiler, "-DSTACK_SIZE_DEFAULT=256", "-DNR_TASKLETS=16",
                        "-g", "-O2", f"{tmpdir}/device.c", "-o", f"{tmpdir}/device"], check=True)
         stack_analysis_output = subprocess.run(
             [dpu_stack_analyzer, f"{tmpdir}/device"], capture_output=True).stdout.decode("utf8")
+        # Extract output using a regex
         stack_size_re_res = re.search(r"Max size: (\d+)\n", stack_analysis_output)
-        # align stack size to 8 bytes
+        # Align stack size to 8 bytes (this might be unnecessary)
         stack_size = ((int(stack_size_re_res.group(1)) - 1) | 7) + 1
 
+        # Compile the dummy program to print input and output sizes
         subprocess.run(["cc", f"{tmpdir}/size_info.c", "-o", f"{tmpdir}/size_info"], check=True)
         size_info_output = subprocess.run([f"{tmpdir}/size_info"], capture_output=True).stdout.decode("utf8").split()
         assert len(size_info_output) == num_globals + num_constants + num_inputs + 1

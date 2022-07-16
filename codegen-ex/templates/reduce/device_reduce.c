@@ -31,10 +31,8 @@
 #endif
 
 // reduction values and helpers
-__host reduction_out_t reduction_vars[NR_REDUCTION_VARS];
+__dma_aligned reduction_out_t reduction_vars[NR_REDUCTION_VARS];
 __atomic_bit uint8_t reduction_mutexes[NR_REDUCTION_VARS];
-
-__mram_noinit reduction_out_t reduction_output;
 
 // various barriers
 BARRIER_INIT(setup_barrier, NR_TASKLETS);
@@ -54,6 +52,18 @@ void pipeline_reduce_combine(reduction_out_t* restrict out_ptr, const reduction_
 void reduce() {
     for (size_t i = 1; i < NR_REDUCTION_VARS; ++i) {
         pipeline_reduce_combine(&reduction_vars[0], &reduction_vars[i]);
+    }
+    uint8_t* read_ptr = (uint8_t*)&reduction_vars[0];
+    __mram_ptr uint8_t* write_ptr = DPU_MRAM_HEAP_POINTER;
+    size_t remaining = sizeof(reduction_out_t);
+    while (remaining >= 2048) {
+        mram_write(read_ptr, write_ptr, 2048);
+        read_ptr = read_ptr + 2048;
+        write_ptr = write_ptr + 2048;
+        remaining -= 2048;
+    }
+    if (remaining > 0) {
+        mram_write(read_ptr, write_ptr, align(remaining));
     }
 }
 

@@ -5,7 +5,7 @@ void pipeline_reduce_combine(reduction_out_t* __restrict out_ptr, const reductio
     ${ reduction["combine"] }
 }
 
-void reduce_parallel(output_t* values, size_t count) {
+void reduce_parallel(char* values, size_t count) {
     // todo decide if parallelism makes sense, based on size of output_t and count
     // for now, assume we always work in parallel
     auto num_threads = std::thread::hardware_concurrency();
@@ -24,7 +24,8 @@ void reduce_parallel(output_t* values, size_t count) {
         result_offsets.push_back(local_offset);
         threads.emplace_back([=] {
             for (size_t i = 1; i < elem_count; ++i) {
-                pipeline_reduce_combine(&values[local_offset], &values[local_offset + i]);
+                pipeline_reduce_combine((output_t*)&values[align(sizeof(output_t)) * local_offset], 
+                    (output_t*)&values[align(sizeof(output_t)) * (local_offset + i)]);
             }
         });
     }
@@ -33,7 +34,7 @@ void reduce_parallel(output_t* values, size_t count) {
     }
 
     for (int i = 1; i < num_threads; ++i) {
-        pipeline_reduce_combine(&values[0], &values[result_offsets[i]]);
+        pipeline_reduce_combine((output_t*)&values[0], (output_t*)&values[align(sizeof(output_t)) * result_offsets[i]]);
     }
 }
 </%block>
@@ -43,22 +44,22 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
     timer_retrieve_data();
     struct dpu_set_t dpu;
     uint32_t dpu_id;
-	reduction_out_t* outputs = (reduction_out_t*)malloc(sizeof(reduction_out_t) * nr_dpus);
+	char* outputs = (char*)malloc(align(sizeof(output_t)) * nr_dpus);
     // DPU_FOREACH(set, dpu) {
     //     DPU_ASSERT(dpu_log_read(dpu, stdout));
     // }
-    DPU_FOREACH(set, dpu, dpu_id) { DPU_ASSERT(dpu_prepare_xfer(dpu, &outputs[dpu_id])); }
+    DPU_FOREACH(set, dpu, dpu_id) { DPU_ASSERT(dpu_prepare_xfer(dpu, &outputs[align(sizeof(output_t)) * dpu_id])); }
     DPU_ASSERT(
-        dpu_push_xfer(set, DPU_XFER_FROM_DPU, "reduction_output", 0, sizeof(reduction_out_t), DPU_XFER_DEFAULT));
+        dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, align(sizeof(output_t)), DPU_XFER_DEFAULT));
 
     timer_start_combine();
 
-    reduce_parallel(&outputs[0], nr_dpus);
+    reduce_parallel(outputs, nr_dpus);
     // for (int i = 1; i < nr_dpus; ++i) {
         // pipeline_reduce_combine(&outputs[0], &outputs[i]);
     // }
 
-    memcpy(output, &outputs[0], sizeof(outputs[0]));
+    memcpy(output, &outputs[0], sizeof(output_t));
 	free(outputs);
 }
 </%block>

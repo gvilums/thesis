@@ -46,6 +46,11 @@ void setup_inputs() {
     memcpy(&${ global_value["name"]}, &globals_input_buffer[GLOBAL_${ loop.index }_OFFSET], sizeof(${ global_value["name"] }));
 % endfor
 
+    // element_input_buffer_0 = DPU_MRAM_HEAP_POINTER;
+% for i in range(1, len(in_stage["inputs"])):
+    // element_input_buffer_${ i } = element_input_buffer_${ i - 1 } + (((sizeof(input_${ i }_t) * total_input_elems - 1) | 7) + 1);
+% endfor
+    // out_buf = element_input_buffer_${ len(in_stage["inputs"]) - 1 } + (((sizeof(input_${ len(in_stage["inputs"]) - 1 }_t) * total_input_elems - 1) | 7) + 1);
 }
 
 void pipeline_input(stage_0_out_t* out_ptr\

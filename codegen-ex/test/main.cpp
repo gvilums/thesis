@@ -198,6 +198,7 @@ int main() {
     printf("sum_reduce, ");
     timer_print_summary();
 
+    printf("output: %u\n", output);
     if (output == elem_count) {
         // puts("sum_reduce: ok");
         return 0;

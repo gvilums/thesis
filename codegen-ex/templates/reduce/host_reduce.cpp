@@ -49,7 +49,7 @@ void compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, reduction_out_
     // }
     DPU_FOREACH(set, dpu, dpu_id) { DPU_ASSERT(dpu_prepare_xfer(dpu, &outputs[dpu_id])); }
     DPU_ASSERT(
-        dpu_push_xfer(set, DPU_XFER_FROM_DPU, "reduction_vars", 0, sizeof(reduction_out_t), DPU_XFER_DEFAULT));
+        dpu_push_xfer(set, DPU_XFER_FROM_DPU, "reduction_output", 0, sizeof(reduction_out_t), DPU_XFER_DEFAULT));
 
     timer_start_combine();
 

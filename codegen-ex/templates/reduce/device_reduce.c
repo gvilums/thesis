@@ -34,6 +34,8 @@
 __host reduction_out_t reduction_vars[NR_REDUCTION_VARS];
 __atomic_bit uint8_t reduction_mutexes[NR_REDUCTION_VARS];
 
+__mram_noinit reduction_out_t reduction_output;
+
 // various barriers
 BARRIER_INIT(setup_barrier, NR_TASKLETS);
 BARRIER_INIT(reduction_init_barrier, NR_TASKLETS);

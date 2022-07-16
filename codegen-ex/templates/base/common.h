@@ -59,6 +59,6 @@ ${ create_typedef(f"stage_{ stage['id'] }_out_t", f"stage_{ stage['id'] }_in_t")
 #define GLOBALS_SIZE GLOBAL_${ len(pipeline["globals"]) }_OFFSET
 #define GLOBALS_SIZE_ALIGNED (((GLOBALS_SIZE - 1) | 7) + 1)
 
-#define align(x) ((((x) - 1) | 7) + 1)
+#define align8(x) ((((x) - 1) | 7) + 1)
 
 #define SEQREAD_CACHE_SIZE READ_CACHE_SIZE

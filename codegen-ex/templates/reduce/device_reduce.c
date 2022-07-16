@@ -63,7 +63,7 @@ void reduce() {
         remaining -= 2048;
     }
     if (remaining > 0) {
-        mram_write(read_ptr, write_ptr, align(remaining));
+        mram_write(read_ptr, write_ptr, align8(remaining));
     }
 }
 

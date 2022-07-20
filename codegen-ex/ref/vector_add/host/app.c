@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
     // printf("NR_TASKLETS\t%d\tBL\t%d\n", NR_TASKLETS, BL);
 
     // Loop over main kernel
-    for(int rep = 0; rep < p.n_warmup + p.n_reps; rep++) {
+    for(int rep = 0; rep < ITERATIONS; rep++) {
 
         // Compute output on CPU (performance comparison and verification purposes)
         // if(rep >= p.n_warmup)

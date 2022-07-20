@@ -25,7 +25,7 @@ def create_plot(name: str, data: dict[str, list[float]]):
 
     plt.legend(loc="upper center", fontsize=10)
 
-    plt.savefig(f"results/plot_{name}.png", dpi=300)
+    plt.savefig(f"results/plot_{name}.svg")
 
 def read_inputs(dir, base, someopt, fullopt, reference):
     inputs = {}

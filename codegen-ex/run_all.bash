@@ -1,6 +1,5 @@
 #!/usr/bin/bash
-rm -f results/ref_out.csv
-echo "name, cpu -> dpu, dpu compute, dpu -> cpu, combine, total" >> ./results/out_ref.csv
+echo "name, cpu -> dpu, dpu compute, dpu -> cpu, combine, total" > ./results/out_ref.csv
 
 echo "running reference"
 cd ref/histogram_large

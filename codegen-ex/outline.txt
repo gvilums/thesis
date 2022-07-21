@@ -28,7 +28,6 @@ Thesis text outline:
         - refer to PrIM paper
 - Programming Model:
     - What kinds of programming models for parallel computation are there?
-        - Many options exists, for examle DaCe
         - Different approaches exist:
             - Specialized to particular workloads or architectures
             - As general as possible
@@ -39,8 +38,6 @@ Thesis text outline:
     - Why choose MapReduce?
         - Relatively straight-forward and easy to understand/program
         - Fits upmem architecture quite well (due to lack of inter-dpu communication)
-    - What alternative choices might have made sense?
-        - Why not DaCe?
 - Implementation:
     - Describe code generator approach
         - General structure of generated code
@@ -50,9 +47,6 @@ Thesis text outline:
         - Copies to multiple DPUs are all forced to use the same size.
           This prevents us from collecting all of the results using
           a single copy operation, and requires moving the data in memory afterwards
-    - What could be done better with more time? 
-        - Better toolchain integration (heterogeneous compilation)
-        - ...
 - Evaluation:
     - Compare to hand-written PrIM benchmarks for applicable programs
         - sum, histogram-small, histogram-large, select (any others?)
@@ -62,4 +56,10 @@ Thesis text outline:
         We see that:
         - When dpu computation dominates, reading data makes a miniscule difference
     - Transfer overheads due to toolchain limtations
+- Discussion
+    - Other PIM architectures
+    - Alternative programming models
+    - Further work:
+        - Better toolchain integration (heterogeneous compilation)
+        - More intelligent compilation, cost models, etc.
 - Conclusion

@@ -58,6 +58,10 @@ double compute_micro_time_delta(const struct timespec* t0, const struct timespec
 }
 
 void timer_print_summary(void) {
+    if (iter != ITERATIONS) {
+        puts("invalid timer state on timer_print_summary");
+        exit(EXIT_FAILURE);
+    }
     double avg_times[4];
     for (int i = 0; i < 4; ++i) {
         double sum = 0;

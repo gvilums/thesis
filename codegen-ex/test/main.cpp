@@ -331,3 +331,33 @@ int main() {
     return 0;
 }
 #endif
+
+#ifdef MATMUL
+int main() {
+    size_t elem_count = 10 * SIZE_FACTOR;
+    input_0_t* input_mat = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
+    uint32_t val = 1;
+    for (size_t i = 0; i < elem_count; ++i) {
+        for (size_t j = 0; j < 100; ++j) {
+            input_mat[i][j] = val;
+            val = (16807 * val) % (~0 - 1);
+        }
+    }
+	global_0_t input_vec;
+	for (size_t i = 0; i < 100; ++i) {
+		input_vec[i] = val;
+		val = (16807 * val) % (~0 - 1);
+	}
+    output_t* output;
+    size_t result_count = 0;
+    for (size_t i = 0; i < ITERATIONS; ++i) {
+        result_count = process(&output, input_mat, elem_count, &input_vec);
+    }
+
+    printf("matmul, ");
+    timer_print_summary();
+
+    return 0;
+}
+#endif
+

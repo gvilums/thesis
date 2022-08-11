@@ -1,0 +1,36 @@
+[pipeline]
+name = "binsearch"
+globals = [
+    { name = "search_key", type = "uint32_t" }
+]
+constants = [
+    { name = "no_result", type = "uint32_t", init = "-1" }
+]
+
+[[stages]]
+kind = "input"
+inputs = ["uint32_t[256][2]"]
+
+[[stages]]
+kind = "reduce"
+program = """
+int32_t lo = 0;
+int32_t hi = 256;
+while (lo < hi) {
+    int32_t mid = (lo + hi) / 2;
+    int32_t val = (*in_ptr)[mid][1];
+    if (val == search_key) {
+        *out_ptr = (*in_ptr)[mid][0];
+        break;    
+    } else if (val < search_key) {
+        hi = mid;
+    } else {
+        lo = mid + 1; 
+    }
+}
+"""
+combine = """
+if (*in_ptr < *out_ptr) {
+    *out_ptr = *in_ptr;
+}
+"""

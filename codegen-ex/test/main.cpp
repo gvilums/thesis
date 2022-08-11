@@ -331,3 +331,61 @@ int main() {
     return 0;
 }
 #endif
+
+#ifdef BINSEARCH
+int main() {
+    // puts("start test...");
+    const size_t elem_count = 1000 * SIZE_FACTOR;
+    input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
+	uint32_t val = 1;
+    for (size_t i = 0; i < elem_count; ++i) {
+        input[i] = val;
+		val = (16807 * val) % (~0 - 1);
+    }
+    reduction_out_t output;
+    for (size_t i = 0; i < ITERATIONS; ++i) {
+        process(&output, input, elem_count);
+    }
+
+    printf("histogram_small, ");
+    timer_print_summary();
+
+    // for (uint32_t i = 0; i < 256; ++i) {
+        // printf("%u: %u\n", i, output[i]);
+    // }
+    return 0;
+}
+#endif
+
+#ifdef MATMUL
+int main() {
+    // puts("start test...");
+    const size_t elem_count = 10 * SIZE_FACTOR;
+    input_0_t* input = (input_0_t*)malloc(sizeof(input_0_t) * elem_count);
+	uint32_t val = 1;
+    for (size_t i = 0; i < elem_count; ++i) {
+        for (int j = 0; j < 100; ++j) {
+            input[i][j] = val;
+            val = (16807 * val) % (~0 - 1);
+        }
+    }
+    global_0_t input_vec;
+    for (int j = 0; j < 100; ++j) {
+        input_vec[j] = val;
+        val = (16807 * val) % (~0 - 1);
+    }
+
+    output_t* output;
+    for (size_t i = 0; i < ITERATIONS; ++i) {
+        process(&output, input, elem_count, &input_vec);
+    }
+
+    printf("matmul, ");
+    timer_print_summary();
+
+    // for (uint32_t i = 0; i < 256; ++i) {
+        // printf("%u: %u\n", i, output[i]);
+    // }
+    return 0;
+}
+#endif

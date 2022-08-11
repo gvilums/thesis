@@ -31,8 +31,7 @@ int main() {
         process(&output, input_0, input_1, elem_count, &global_0);
     }
 
-    printf("combine_add, ");
-    timer_print_summary();
+    timer_print_summary("combine_add");
 
     if (output == 4 * elem_count) {
         // puts("sum_reduce: ok");
@@ -59,8 +58,7 @@ int main() {
         process(&output, input, elem_count);
     }
 
-    printf("histogram_small, ");
-    timer_print_summary();
+    timer_print_summary("histogram_small");
 
     // for (uint32_t i = 0; i < 256; ++i) {
         // printf("%u: %u\n", i, output[i]);
@@ -84,8 +82,7 @@ int main() {
         process(&output, input, elem_count);
     }
 
-    printf("histogram_large, ");
-    timer_print_summary();
+    timer_print_summary("histogram_large");
 
     // for (uint32_t i = 0; i < 2048; ++i) {
     //     printf("%u: %u\n", i, output[i]);
@@ -108,8 +105,7 @@ int main() {
         result_count = process(&output, input, elem_count);
     }
 
-    printf("select, ");
-    timer_print_summary();
+    timer_print_summary("select");
 
     for (uint64_t i = 0; i < result_count; ++i) {
         if (output[i] != i * 2) {
@@ -143,8 +139,7 @@ int main() {
         result_count = process(&output, input, elem_count, &factor);
     }
 
-    printf("filter_multiples, ");
-    timer_print_summary();
+    timer_print_summary("filter_multiples");
 
     for (uint64_t i = 0; i < result_count; ++i) {
         if (output[i] != i * factor) {
@@ -176,8 +171,7 @@ int main() {
         result_count = process(&output, input, elem_count);
     }
 
-    printf("prime_sieve, ");
-    timer_print_summary();
+    timer_print_summary("prime_sieve");
 
 }
 #endif
@@ -195,8 +189,7 @@ int main() {
         process(&output, input, elem_count);
     }
 
-    printf("sum_reduce, ");
-    timer_print_summary();
+    timer_print_summary("sum_reduce");
 
     if (output == elem_count) {
         // puts("sum_reduce: ok");
@@ -223,8 +216,7 @@ int main() {
         result_count = process(&output, input, elem_count, &factor);
     }
 
-    printf("map_only, ");
-    timer_print_summary();
+    timer_print_summary("map_only");
 
     for (uint32_t i = 0; i < result_count; ++i) {
         if (output[i] != i * factor) {
@@ -253,8 +245,7 @@ int main() {
         count = process(&output, input_0, input_1, elem_count);
     }
 
-    printf("vector_add, ");
-    timer_print_summary();
+    timer_print_summary("vector_add");
 
 	if (count != elem_count) {
 		// puts("vector_add: ERROR");
@@ -289,8 +280,7 @@ int main() {
         result_count = process(&output, input, elem_count);
     }
 
-    printf("dedup, ");
-    timer_print_summary();
+    timer_print_summary("dedup");
 
     if (result_count != elem_count) {
         return 1;
@@ -324,8 +314,7 @@ int main() {
         process(&output, input, elem_count);
     }
 
-    printf("maxima, ");
-    timer_print_summary();
+    timer_print_summary("maxima");
 
     // puts("maxima: ok");
     return 0;
@@ -347,8 +336,7 @@ int main() {
         process(&output, input, elem_count);
     }
 
-    printf("histogram_small, ");
-    timer_print_summary();
+    timer_print_summary("binsearch");
 
     // for (uint32_t i = 0; i < 256; ++i) {
         // printf("%u: %u\n", i, output[i]);
@@ -380,8 +368,7 @@ int main() {
         process(&output, input, elem_count, &input_vec);
     }
 
-    printf("matmul, ");
-    timer_print_summary();
+    timer_print_summary("matmul");
 
     // for (uint32_t i = 0; i < 256; ++i) {
         // printf("%u: %u\n", i, output[i]);

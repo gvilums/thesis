@@ -226,8 +226,7 @@ int main(int argc, char **argv) {
     // printf("DPU-CPU ");
     // print(&timer, 4, p.n_reps);
 
-    printf("select, ");
-    timer_print_summary();
+    timer_print_summary("select");
 
     #if ENERGY
     double energy;

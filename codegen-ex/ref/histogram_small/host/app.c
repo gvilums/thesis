@@ -245,8 +245,7 @@ int main(int argc, char **argv) {
 
     }
 
-    printf("histogram_small, ");
-    timer_print_summary();
+    timer_print_summary("histogram_small");
 
     // Print timing results
     // printf("CPU ");

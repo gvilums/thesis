@@ -12,6 +12,7 @@ extern "C" {
 #include <algorithm>
 #include <vector>
 #include <thread>
+#include <iostream>
 
 #define DPU_BINARY "device"
 
@@ -150,7 +151,17 @@ double compute_micro_time_delta(const struct timespec* t0, const struct timespec
     return 1000000 * (double)second_delta + (double)nano_delta / 1000;
 }
 
-void timer_print_summary(void) {
+void timer_print_summary(const char* name) {
+#ifdef PRINT_CSV
+    for (int i = 0; i < ITERATIONS - WARMUP; ++i) {
+        double deltas[5] = {};
+        for (int j = 0; j < 4; ++j) {
+            deltas[j] = compute_micro_time_delta(&global_timer.times[WARMUP + i][j], &global_timer.times[WARMUP + i][j + 1]);
+        }
+        double total = compute_micro_time_delta(&global_timer.times[WARMUP + i][0], &global_timer.times[WARMUP + i][4]);
+        printf("%s, %d, %lf, %lf, %lf, %lf, %lf\n", name, i, deltas[0], deltas[1], deltas[2], deltas[3], total);
+    }
+#else
     double avg_times[4];
     for (int i = 0; i < 4; ++i) {
         double sum = 0;
@@ -166,9 +177,8 @@ void timer_print_summary(void) {
         total += compute_micro_time_delta(&global_timer.times[j][0], &global_timer.times[j][4]);
     }
     total /= ITERATIONS;
-#ifdef PRINT_CSV
-    printf("%lf, %lf, %lf, %lf, %lf\n", avg_times[0], avg_times[1], avg_times[2], avg_times[3], total);
-#else
+
+    printf("%s\n", name);
     printf("cpu -> dpu transfer %15lf us\n", avg_times[0]);
     printf("dpu execution       %15lf us\n", avg_times[1]);
     printf("dpu -> cpu transfer %15lf us\n", avg_times[2]);

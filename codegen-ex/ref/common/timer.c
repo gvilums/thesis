@@ -57,34 +57,13 @@ double compute_micro_time_delta(const struct timespec* t0, const struct timespec
     return 1000000 * (double)second_delta + (double)nano_delta / 1000;
 }
 
-void timer_print_summary(void) {
-    if (iter != ITERATIONS) {
-        puts("invalid timer state on timer_print_summary");
-        exit(EXIT_FAILURE);
-    }
-    double avg_times[4];
-    for (int i = 0; i < 4; ++i) {
-        double sum = 0;
-        for (int j = 0; j < ITERATIONS; ++j) {
-            sum += compute_micro_time_delta(&global_timer.times[j][i], &global_timer.times[j][i + 1]);
+void timer_print_summary(const char* name) {
+    for (int i = 0; i < ITERATIONS - WARMUP; ++i) {
+        double deltas[5] = {};
+        for (int j = 0; j < 4; ++j) {
+            deltas[j] = compute_micro_time_delta(&global_timer.times[WARMUP + i][j], &global_timer.times[WARMUP + i][j + 1]);
         }
-        sum /= ITERATIONS;
-        avg_times[i] = sum;
+        double total = compute_micro_time_delta(&global_timer.times[WARMUP + i][0], &global_timer.times[WARMUP + i][4]);
+        printf("%s, %d, %lf, %lf, %lf, %lf, %lf\n", name, i, deltas[0], deltas[1], deltas[2], deltas[3], total);
     }
-
-    double total = 0;
-    for (int j = 0; j < ITERATIONS; ++j) {
-        total += compute_micro_time_delta(&global_timer.times[j][0], &global_timer.times[j][4]);
-    }
-    total /= ITERATIONS;
-// #ifdef PRINT_CSV
-    printf("%lf, %lf, %lf, %lf, %lf\n", avg_times[0], avg_times[1], avg_times[2], avg_times[3], total);
-// #else
-//     printf("cpu -> dpu transfer %15lf us\n", avg_times[0]);
-//     printf("dpu execution       %15lf us\n", avg_times[1]);
-//     printf("dpu -> cpu transfer %15lf us\n", avg_times[2]);
-//     printf("cpu final combine   %15lf us\n", avg_times[3]);
-// 	printf("--------------------------------------\n");
-//     printf("total time          %15lf us\n", total);
-// #endif
 }

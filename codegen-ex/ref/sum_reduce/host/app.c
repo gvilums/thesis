@@ -245,8 +245,7 @@ int main(int argc, char **argv) {
     // print(&timer, 2, p.n_reps);
     // printf("Inter-DPU ");
     // print(&timer, 3, p.n_reps);
-    printf("sum_reduce, ");
-    timer_print_summary();
+    timer_print_summary("sum_reduce");
 
     #if ENERGY
     double energy;

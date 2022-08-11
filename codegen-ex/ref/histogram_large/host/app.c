@@ -250,8 +250,7 @@ int main(int argc, char **argv) {
     // printf("DPU-CPU ");
     // print(&timer, 3, p.n_reps);
 
-    printf("histogram_large, ");
-    timer_print_summary();
+    timer_print_summary("histogram_large");
 
     #if ENERGY
     double energy;

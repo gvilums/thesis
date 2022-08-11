@@ -38,7 +38,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define ITERATIONS 10
+#ifndef ITERATIONS
+#define ITERATIONS 20
+#endif
+
+#ifndef WARMUP
+#define WARMUP 4
+#endif
 
 struct timer {
     struct timespec times[ITERATIONS][5];
@@ -50,4 +56,4 @@ void timer_retrieve_data(void);
 void timer_start_combine(void);
 void timer_finish(void);
 
-void timer_print_summary(void);
+void timer_print_summary(const char* name);

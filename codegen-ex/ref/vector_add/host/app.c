@@ -193,8 +193,7 @@ int main(int argc, char **argv) {
     // print(&timer, 2, p.n_reps);
     // printf("DPU-CPU ");
     // print(&timer, 3, p.n_reps);
-    printf("vector_add, ");
-    timer_print_summary();
+    timer_print_summary("vector_add");
 
 #if ENERGY
     double energy;

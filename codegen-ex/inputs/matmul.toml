@@ -9,7 +9,6 @@ kind = "input"
 inputs = ["uint64_t[100]"]
 
 [[stages]]
-# filters data elements by a predicate
 kind = "map"
 output = "uint64_t"
 program = """

@@ -367,8 +367,7 @@ int main() {
         result_count = process(&output, input_mat, elem_count, &input_vec);
     }
 
-    printf("matmul, ");
-    timer_print_summary();
+    timer_print_summary("matmul");
 
     return 0;
 }

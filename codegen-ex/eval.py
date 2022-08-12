@@ -13,35 +13,39 @@ def create_plot(name: str, data: dict[str, list[list[float]]]):
 
     x_pos = np.arange(1, 2*len(list(data.values())[0]), 2)
 
-    fig, ax = plt.subplots(1, 5, figsize=(20, 6)) # one figure for each of 5 steps
+    fig, ax = plt.subplots(1, 5, figsize=(16, 6)) # one figure for each of 5 steps
 
     
+    plot_data = []
 
     for i, (kind, steps) in enumerate(data.items()):
         for j, step in enumerate(steps):
-            ax[j].boxplot(step, positions=[i], labels=[kind], widths=[wd])
-        # plt.boxplot(steps, positions=x_pos + i * wd, widths=[wd for _ in steps], labels=[kind for _ in steps])
+            plot = ax[j].violinplot(step, positions=[i], showmedians=True)#, labels=[kind], widths=[wd])
+            if j == 0:
+                plot_data.append((plot, kind))
     
-    ax[0].set_title("cpu -> dpu")
-    ax[1].set_title("dpu compute")
-    ax[2].set_title("dpu -> cpu")
-    ax[3].set_title("cpu merge")
-    ax[4].set_title("total")
+    ax[0].set_xlabel("cpu -> dpu", fontsize=12)
+    ax[1].set_xlabel("dpu compute", fontsize=12)
+    ax[2].set_xlabel("dpu -> cpu", fontsize=12)
+    ax[3].set_xlabel("cpu merge", fontsize=12)
+    ax[4].set_xlabel("total", fontsize=12)
+
+    for axis in ax:
+        axis.set_ylim(ymin=0)
+        axis.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+        axis.tick_params(
+            axis='x',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            bottom=False,      # ticks along the bottom edge are off
+            top=False,         # ticks along the top edge are off
+            labelbottom=False) # labels along the bottom edge are off
 
     # fig.xticks(x_pos+wd, ["cpu -> dpu", "dpu compute", "dpu -> cpu", "cpu merge", "total"], fontsize=10)
     # fig.yticks(fontsize=10)
     fig.suptitle(f"{name}", fontsize=15)
     # fig.ylabel('us', fontsize=10)
 
-    lines = []
-    labels = []
-
-    for axis in ax:
-        ax_line, ax_label = axis.get_legend_handles_labels()
-        lines.extend(ax_line)
-        labels.extend(ax_label)
-
-    fig.legend(lines, labels, loc="upper right", fontsize=10)
+    fig.legend([a["bodies"][0] for a, b in plot_data], [b for a, b in plot_data], loc="upper right", fontsize=10)
 
     fig.savefig(f"results/plot_{name}.svg")
 

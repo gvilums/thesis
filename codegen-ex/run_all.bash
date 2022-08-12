@@ -1,6 +1,5 @@
 #!/usr/bin/bash
 echo "running reference"
-echo "" > ../../results/out_ref.csv
 cd ref/histogram_large
 make
 ./bin/host_code -i 100000000 >> ../../results/out_ref.csv

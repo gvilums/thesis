@@ -76,7 +76,7 @@ def read_inputs(dir, base, someopt, fullopt, reference):
 
 
 def main():
-    out = read_inputs("results", "out_O0.csv", "out_O0.csv", "out_O0.csv", "out_O0.csv")
+    out = read_inputs("results", "out_O0.csv", "out_O1.csv", "out_O2.csv", "out_ref.csv")
     for k, val in out.items():
         create_plot(k, val)
 

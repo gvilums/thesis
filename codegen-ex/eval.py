@@ -33,7 +33,15 @@ def create_plot(name: str, data: dict[str, list[list[float]]]):
     fig.suptitle(f"{name}", fontsize=15)
     # fig.ylabel('us', fontsize=10)
 
-    fig.legend(loc="upper center", fontsize=10)
+    lines = []
+    labels = []
+
+    for axis in ax:
+        ax_line, ax_label = axis.get_legend_handles_labels()
+        lines.extend(ax_line)
+        labels.extend(ax_label)
+
+    fig.legend(lines, labels, loc="upper right", fontsize=10)
 
     fig.savefig(f"results/plot_{name}.svg")
 

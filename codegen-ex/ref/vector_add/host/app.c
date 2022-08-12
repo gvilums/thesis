@@ -34,11 +34,11 @@ static T* C2;
 
 // Create input arrays
 static void read_input(T* A, T* B, unsigned int nr_elements) {
-    srand(0);
+    // srand(0);
     // printf("nr_elements\t%u\t", nr_elements);
     for (unsigned int i = 0; i < nr_elements; i++) {
-        A[i] = (T) (rand());
-        B[i] = (T) (rand());
+        A[i] = (T) (1);
+        B[i] = (T) (2);
     }
 }
 
@@ -75,6 +75,10 @@ int main(int argc, char **argv) {
     const unsigned int input_size_dpu = divceil(input_size, nr_of_dpus); // Input size per DPU (max.)
     const unsigned int input_size_dpu_8bytes = 
         ((input_size_dpu * sizeof(T)) % 8) != 0 ? roundup(input_size_dpu, 8) : input_size_dpu; // Input size per DPU (max.), 8-byte aligned
+
+    fprintf(stderr, "ndpus: %u\n", nr_of_dpus);
+    fprintf(stderr, "input size: %u\n", input_size_dpu);
+    fprintf(stderr, "input size rounded: %u\n", input_size_dpu_8bytes);
 
     // Input/output allocation
     A = malloc(input_size_dpu_8bytes * nr_of_dpus * sizeof(T));
@@ -125,16 +129,19 @@ int main(int argc, char **argv) {
             DPU_ASSERT(dpu_prepare_xfer(dpu, &input_arguments[i]));
         }
         DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, "DPU_INPUT_ARGUMENTS", 0, sizeof(input_arguments[0]), DPU_XFER_DEFAULT));
+        fprintf(stderr, "transfer 0 size: %lu\n", sizeof(input_arguments[0]));
 
         DPU_FOREACH(dpu_set, dpu, i) {
             DPU_ASSERT(dpu_prepare_xfer(dpu, bufferA + input_size_dpu_8bytes * i));
         }
         DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, input_size_dpu_8bytes * sizeof(T), DPU_XFER_DEFAULT));
+        fprintf(stderr, "transfer 1 size: %lu\n", input_size_dpu_8bytes * sizeof(T));
  
         DPU_FOREACH(dpu_set, dpu, i) {
             DPU_ASSERT(dpu_prepare_xfer(dpu, bufferB + input_size_dpu_8bytes * i));
         }
         DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, input_size_dpu_8bytes * sizeof(T), input_size_dpu_8bytes * sizeof(T), DPU_XFER_DEFAULT));
+        fprintf(stderr, "transfer 2 size: %lu\n", input_size_dpu_8bytes * sizeof(T));
         // if(rep >= p.n_warmup)
             // stop(&timer, 1);
 

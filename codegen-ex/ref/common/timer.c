@@ -58,12 +58,16 @@ double compute_micro_time_delta(const struct timespec* t0, const struct timespec
 }
 
 void timer_print_summary(const char* name) {
-    for (int i = 0; i < ITERATIONS - WARMUP; ++i) {
-        double deltas[5] = {};
-        for (int j = 0; j < 4; ++j) {
-            deltas[j] = compute_micro_time_delta(&global_timer.times[WARMUP + i][j], &global_timer.times[WARMUP + i][j + 1]);
+    for (int i = 0; i < 4; ++i) {
+        printf("%s, %d, ", name, i);
+        for (int j = 0; j < ITERATIONS - WARMUP; ++j) {
+            printf("%lf, ", compute_micro_time_delta(&global_timer.times[WARMUP + j][i], &global_timer.times[WARMUP + j][i + 1]));
         }
-        double total = compute_micro_time_delta(&global_timer.times[WARMUP + i][0], &global_timer.times[WARMUP + i][4]);
-        printf("%s, %d, %lf, %lf, %lf, %lf, %lf\n", name, i, deltas[0], deltas[1], deltas[2], deltas[3], total);
+        puts("");
     }
+    printf("%s, %d, ", name, 4);
+    for (int j = 0; j < ITERATIONS - WARMUP; ++j) {
+        printf("%lf, ", compute_micro_time_delta(&global_timer.times[WARMUP + j][0], &global_timer.times[WARMUP + j][4]));
+    }
+    puts("");
 }

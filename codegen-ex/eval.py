@@ -5,7 +5,7 @@ import numpy as np
 import csv
 import os
 
-def create_plot(name: str, data: dict[str, list[float]]):
+def create_plot(name: str, data: dict[str, list[list[float]]]):
     if len(data) == 0:
         return
 
@@ -13,19 +13,29 @@ def create_plot(name: str, data: dict[str, list[float]]):
 
     x_pos = np.arange(1, 2*len(list(data.values())[0]), 2)
 
-    plt.figure()
+    fig, ax = plt.subplots(1, 5, figsize=(20, 6)) # one figure for each of 5 steps
 
-    for i, (k, d) in enumerate(data.items()):
-        plt.bar(x_pos + i * wd, d, width=wd, label=k, edgecolor='k')
+    
 
-    plt.xticks(x_pos+wd, ["cpu -> dpu", "dpu compute", "dpu -> cpu", "cpu merge", "total"], fontsize=10)
-    plt.yticks(fontsize=10)
-    plt.title(f"{name}", fontsize=15)
-    plt.ylabel('us', fontsize=10)
+    for i, (kind, steps) in enumerate(data.items()):
+        for j, step in enumerate(steps):
+            ax[j].boxplot(step, positions=[i], labels=[kind], widths=[wd])
+        # plt.boxplot(steps, positions=x_pos + i * wd, widths=[wd for _ in steps], labels=[kind for _ in steps])
+    
+    ax[0].set_title("cpu -> dpu")
+    ax[1].set_title("dpu compute")
+    ax[2].set_title("dpu -> cpu")
+    ax[3].set_title("cpu merge")
+    ax[4].set_title("total")
 
-    plt.legend(loc="upper center", fontsize=10)
+    # fig.xticks(x_pos+wd, ["cpu -> dpu", "dpu compute", "dpu -> cpu", "cpu merge", "total"], fontsize=10)
+    # fig.yticks(fontsize=10)
+    fig.suptitle(f"{name}", fontsize=15)
+    # fig.ylabel('us', fontsize=10)
 
-    plt.savefig(f"results/plot_{name}.svg")
+    fig.legend(loc="upper center", fontsize=10)
+
+    fig.savefig(f"results/plot_{name}.svg")
 
 def read_inputs(dir, base, someopt, fullopt, reference):
     inputs = {}
@@ -33,15 +43,21 @@ def read_inputs(dir, base, someopt, fullopt, reference):
     def read_file(filename, category):
         with open(os.path.join(dir, filename), newline='') as file_data:
             reader = csv.reader(file_data)
-            next(reader, None) # skip header
+            steps = []
             for line in reader:
                 name = line[0]
-                data = list(map(float, line[1:]))
+                step_idx = int(line[1])
+                if step_idx == 0:
+                    steps = []
+
+                data = list(map(float, line[2:-1]))
+                steps.append(data)
 
                 if name not in inputs:
                     inputs[name] = {}
 
-                inputs[name][category] = data
+                if step_idx == 4:
+                    inputs[name][category] = steps
 
     read_file(base, "base")
     read_file(someopt, "someopt")
@@ -52,7 +68,7 @@ def read_inputs(dir, base, someopt, fullopt, reference):
 
 
 def main():
-    out = read_inputs("results", "out_O0.csv", "out_O1.csv", "out_O2.csv", "out_ref.csv")
+    out = read_inputs("results", "out_O0.csv", "out_O0.csv", "out_O0.csv", "out_O0.csv")
     for k, val in out.items():
         create_plot(k, val)
 

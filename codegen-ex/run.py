@@ -35,7 +35,7 @@ def run_test(input_file, out_dir, build_dir, size_multiplier: int, opt_level: in
         compile_result.check_returncode()
 
     os.chdir(build_dir)
-    result = subprocess.run("./host", stderr=subprocess.DEVNULL)
+    result = subprocess.run("./host")
     if result.returncode != 0:
         print(f"ERROR while running test {test_name}")
         result.check_returncode()
@@ -58,7 +58,6 @@ def main():
     if len(args.input_files) == 0:
         args.input_files += os.listdir("inputs")
 
-    print("name, transfer_to_dpu, dpu_run, transfer_from_dpu, final_combine, total")
     sys.stdout.flush()
     for filename in args.input_files:
         run_test(f"inputs/{filename}", "output", "build", int(10 ** args.size_exp), args.opt)

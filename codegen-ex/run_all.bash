@@ -1,6 +1,4 @@
 #!/usr/bin/bash
-echo "name, cpu -> dpu, dpu compute, dpu -> cpu, combine, total" > ./results/out_ref.csv
-
 echo "running reference"
 cd ref/histogram_large
 make

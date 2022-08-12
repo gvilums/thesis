@@ -4,7 +4,7 @@ BUILDDIR ?= bin
 NR_TASKLETS ?= 16
 BL ?= 10
 NR_DPUS ?= 1
-TYPE ?= INT32
+TYPE ?= UINT64
 ENERGY ?= 0
 
 define conf_filename

@@ -67,6 +67,7 @@ void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus ${ param_decl() }) {
         }
         size_t aligned_max_size = ((sizeof(input_${ i }_t) * base_inputs) | 7) + 1;
         DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "element_input_buffer_${ i }", 0, aligned_max_size, DPU_XFER_DEFAULT));
+        fprintf(stderr, "transfer ${i} size: %lu\n", aligned_max_size);
     }
 %endfor
 
@@ -89,6 +90,7 @@ void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus ${ param_decl() }) {
         }
     }
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "globals_input_buffer", 0, GLOBALS_SIZE_ALIGNED, DPU_XFER_DEFAULT));
+    fprintf(stderr, "transfer globals size: %lu\n", GLOBALS_SIZE_ALIGNED);
 }
 
 <%block name="compute_result"/>
@@ -152,38 +154,41 @@ double compute_micro_time_delta(const struct timespec* t0, const struct timespec
 }
 
 void timer_print_summary(const char* name) {
-#ifdef PRINT_CSV
-    for (int i = 0; i < ITERATIONS - WARMUP; ++i) {
-        double deltas[5] = {};
-        for (int j = 0; j < 4; ++j) {
-            deltas[j] = compute_micro_time_delta(&global_timer.times[WARMUP + i][j], &global_timer.times[WARMUP + i][j + 1]);
-        }
-        double total = compute_micro_time_delta(&global_timer.times[WARMUP + i][0], &global_timer.times[WARMUP + i][4]);
-        printf("%s, %d, %lf, %lf, %lf, %lf, %lf\n", name, i, deltas[0], deltas[1], deltas[2], deltas[3], total);
-    }
-#else
-    double avg_times[4];
     for (int i = 0; i < 4; ++i) {
-        double sum = 0;
-        for (int j = 0; j < ITERATIONS; ++j) {
-            sum += compute_micro_time_delta(&global_timer.times[j][i], &global_timer.times[j][i + 1]);
+        double timings[ITERATIONS - WARMUP];
+        printf("%s, %d, ", name, i);
+        for (int j = 0; j < ITERATIONS - WARMUP; ++j) {
+            printf("%lf, ", compute_micro_time_delta(&global_timer.times[WARMUP + j][i], &global_timer.times[WARMUP + j][i + 1]));
         }
-        sum /= ITERATIONS;
-        avg_times[i] = sum;
+        puts("");
     }
-
-    double total = 0;
-    for (int j = 0; j < ITERATIONS; ++j) {
-        total += compute_micro_time_delta(&global_timer.times[j][0], &global_timer.times[j][4]);
+    printf("%s, %d, ", name, 4);
+    for (int j = 0; j < ITERATIONS - WARMUP; ++j) {
+        printf("%lf, ", compute_micro_time_delta(&global_timer.times[WARMUP + j][0], &global_timer.times[WARMUP + j][4]));
     }
-    total /= ITERATIONS;
+    puts("");
 
-    printf("%s\n", name);
-    printf("cpu -> dpu transfer %15lf us\n", avg_times[0]);
-    printf("dpu execution       %15lf us\n", avg_times[1]);
-    printf("dpu -> cpu transfer %15lf us\n", avg_times[2]);
-    printf("cpu final combine   %15lf us\n", avg_times[3]);
-	printf("--------------------------------------\n");
-    printf("total time          %15lf us\n", total);
-#endif
+    // double avg_times[4];
+    // for (int i = 0; i < 4; ++i) {
+    //     double sum = 0;
+    //     for (int j = 0; j < ITERATIONS; ++j) {
+    //         sum += compute_micro_time_delta(&global_timer.times[j][i], &global_timer.times[j][i + 1]);
+    //     }
+    //     sum /= ITERATIONS;
+    //     avg_times[i] = sum;
+    // }
+
+    // double total = 0;
+    // for (int j = 0; j < ITERATIONS; ++j) {
+    //     total += compute_micro_time_delta(&global_timer.times[j][0], &global_timer.times[j][4]);
+    // }
+    // total /= ITERATIONS;
+
+    // printf("%s\n", name);
+    // printf("cpu -> dpu transfer %15lf us\n", avg_times[0]);
+    // printf("dpu execution       %15lf us\n", avg_times[1]);
+    // printf("dpu -> cpu transfer %15lf us\n", avg_times[2]);
+    // printf("cpu final combine   %15lf us\n", avg_times[3]);
+	// printf("--------------------------------------\n");
+    // printf("total time          %15lf us\n", total);
 }

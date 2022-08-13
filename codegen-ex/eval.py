@@ -6,16 +6,21 @@ import csv
 import os
 
 def create_plot(name: str, data: dict[str, list[list[float]]]):
+    print("plotting:", name)
     if len(data) == 0:
         return
 
-    wd = 1 / len(data)
+    fig = plt.figure(figsize=(9, 6))
+    fig.subplots_adjust(wspace=0.25, hspace=0.25)
+    ax = []
+    ax.append(plt.subplot(2, 3, 1))
+    ax.append(plt.subplot(2, 3, 2))
+    ax.append(plt.subplot(2, 3, 4))
+    ax.append(plt.subplot(2, 3, 5))
+    ax.append(plt.subplot(2, 3, (3, 6)))
 
-    x_pos = np.arange(1, 2*len(list(data.values())[0]), 2)
+    # fig, ax = plt.subplots(1, 5, sharey=False, figsize=(16, 6)) # one figure for each of 5 steps
 
-    fig, ax = plt.subplots(1, 5, figsize=(16, 6)) # one figure for each of 5 steps
-
-    
     plot_data = []
 
     for i, (kind, steps) in enumerate(data.items()):
@@ -45,7 +50,7 @@ def create_plot(name: str, data: dict[str, list[list[float]]]):
     fig.suptitle(f"{name}", fontsize=15)
     # fig.ylabel('us', fontsize=10)
 
-    fig.legend([a["bodies"][0] for a, b in plot_data], [b for a, b in plot_data], loc="upper right", fontsize=10)
+    fig.legend([a["bodies"][0] for a, _ in plot_data], [b for _, b in plot_data], loc="lower center", fontsize=10, ncol=len(plot_data))
 
     fig.savefig(f"results/plot_{name}.svg")
 

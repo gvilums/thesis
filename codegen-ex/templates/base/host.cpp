@@ -67,7 +67,7 @@ void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus ${ param_decl() }) {
         }
         size_t aligned_max_size = ((sizeof(input_${ i }_t) * base_inputs) | 7) + 1;
         DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "element_input_buffer_${ i }", 0, aligned_max_size, DPU_XFER_DEFAULT));
-        fprintf(stderr, "transfer ${i} size: %lu\n", aligned_max_size);
+        // fprintf(stderr, "transfer ${i} size: %lu\n", aligned_max_size);
     }
 %endfor
 
@@ -90,7 +90,7 @@ void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus ${ param_decl() }) {
         }
     }
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "globals_input_buffer", 0, GLOBALS_SIZE_ALIGNED, DPU_XFER_DEFAULT));
-    fprintf(stderr, "transfer globals size: %lu\n", GLOBALS_SIZE_ALIGNED);
+    // fprintf(stderr, "transfer globals size: %lu\n", GLOBALS_SIZE_ALIGNED);
 }
 
 <%block name="compute_result"/>

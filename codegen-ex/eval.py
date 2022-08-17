@@ -25,7 +25,7 @@ def create_plot(name: str, data: dict[str, list[list[float]]]):
 
     for i, (kind, steps) in enumerate(data.items()):
         for j, step in enumerate(steps):
-            plot = ax[j].violinplot(step, positions=[i], showmedians=True)#, labels=[kind], widths=[wd])
+            plot = ax[j].violinplot(step, positions=[i], showmedians=True, showextrema=False)#, labels=[kind], widths=[wd])
             if j == 0:
                 plot_data.append((plot, kind))
     
@@ -47,7 +47,7 @@ def create_plot(name: str, data: dict[str, list[list[float]]]):
 
     # fig.xticks(x_pos+wd, ["cpu -> dpu", "dpu compute", "dpu -> cpu", "cpu merge", "total"], fontsize=10)
     # fig.yticks(fontsize=10)
-    fig.suptitle(f"{name}", fontsize=15)
+    # fig.suptitle(f"{name}", fontsize=15)
     # fig.ylabel('us', fontsize=10)
 
     fig.legend([a["bodies"][0] for a, _ in plot_data], [b for _, b in plot_data], loc="lower center", fontsize=10, ncol=len(plot_data))

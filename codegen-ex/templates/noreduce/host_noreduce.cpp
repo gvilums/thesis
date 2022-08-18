@@ -81,31 +81,21 @@ size_t compute_final_result(struct dpu_set_t set, uint32_t nr_dpus, output_t** o
 
 % else:
 
-    size_t base_inputs = elem_count / nr_dpus;
-    size_t remaining_elems = elem_count % nr_dpus;
-
-    output_t* out_buf = (output_t*)malloc(sizeof(output_t) * elem_count);
-
-    fprintf(stderr, "begin\n");
-    DPU_FOREACH(set, dpu, dpu_id) {
-        if (remaining_elems != 0 && dpu_id == remaining_elems) {
-            DPU_ASSERT(
-                dpu_push_xfer(set, DPU_XFER_FROM_DPU, "element_output_buffer", 0, sizeof(output_t) * (base_inputs + 1), DPU_XFER_DEFAULT));
-            fprintf(stderr, "transfer %u\n", dpu_id);
-        }
-        size_t input_elem_count = base_inputs;
-        if (dpu_id < remaining_elems) {
-            input_elem_count += 1;
-        }
-        size_t local_offset = input_elem_count * dpu_id;
-        if (dpu_id >= remaining_elems) {
-            local_offset += remaining_elems;
-        }
-        DPU_ASSERT(dpu_prepare_xfer(dpu, &out_buf[local_offset]));
+    elem_count_t elems_per_dpu;
+    if (elem_count % nr_dpus == 0) {
+        elems_per_dpu = elem_count / nr_dpus;
+    } else {
+        elems_per_dpu = elem_count / nr_dpus + 1;
     }
-    DPU_ASSERT(
-        dpu_push_xfer(set, DPU_XFER_FROM_DPU, "element_output_buffer", 0, sizeof(output_t) * base_inputs, DPU_XFER_DEFAULT));
-    fprintf(stderr, "transfer\n");
+
+    output_t* out_buf = (output_t*)malloc(sizeof(output_t) * elems_per_dpu * nr_dpus);
+
+    // fprintf(stderr, "begin\n");
+    DPU_FOREACH(set, dpu, dpu_id) {
+        DPU_ASSERT(dpu_prepare_xfer(dpu, &out_buf[elems_per_dpu * dpu_id]));
+    }
+    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, "element_output_buffer", 0, sizeof(output_t) * elems_per_dpu, DPU_XFER_DEFAULT));
+    // fprintf(stderr, "transfer\n");
 
     *output = out_buf;
     timer_start_combine();

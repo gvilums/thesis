@@ -44,49 +44,59 @@ void setup_inputs(struct dpu_set_t set, uint32_t nr_dpus ${ param_decl() }) {
     struct dpu_set_t dpu;
     uint32_t dpu_id;
 
-    size_t base_inputs = elem_count / nr_dpus;
-    size_t remaining_elems = elem_count % nr_dpus;
-
-    size_t dpu_offsets[nr_dpus];
-    DPU_FOREACH(set, dpu, dpu_id) {
-        size_t input_elem_count = base_inputs;
-        if (dpu_id < remaining_elems) {
-            input_elem_count += 1;
+    elem_count_t elems_per_dpu;
+    elem_count_t final_dpu_elems;
+    size_t empty_dpus;
+    if (elem_count % nr_dpus == 0) {
+        elems_per_dpu = elem_count / nr_dpus;
+        final_dpu_elems = elems_per_dpu;
+        empty_dpus = 0;
+    } else {
+        elems_per_dpu = elem_count / nr_dpus + 1;
+        if (elem_count % elems_per_dpu == 0) {
+            final_dpu_elems = elems_per_dpu;
+            empty_dpus = nr_dpus - elem_count / elems_per_dpu;
+        } else {
+            final_dpu_elems = elem_count % elems_per_dpu;
+            empty_dpus = nr_dpus - elem_count / elems_per_dpu - 1;
         }
-        size_t local_offset = input_elem_count * dpu_id;
-        if (dpu_id >= remaining_elems) {
-            local_offset += remaining_elems;
-        }
-        dpu_offsets[dpu_id] = local_offset;
     }
 
 % for i in range(0, len(in_stage["inputs"])):
     {
         DPU_FOREACH(set, dpu, dpu_id) {
-            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)&input_${ i }[dpu_offsets[dpu_id]]));
+            if (dpu_id < nr_dpus - empty_dpus) {
+                DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)&input_${ i }[elems_per_dpu * dpu_id]));
+            }
         }
-        size_t aligned_max_size = ((sizeof(input_${ i }_t) * base_inputs) | 7) + 1;
-        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "element_input_buffer_${ i }", 0, aligned_max_size, DPU_XFER_DEFAULT));
-        // fprintf(stderr, "transfer ${i} size: %lu\n", aligned_max_size);
+        size_t transfer_size = sizeof(input_${ i }_t) * elems_per_dpu;
+        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "element_input_buffer_${ i }", 0, align8(transfer_size), DPU_XFER_DEFAULT));
     }
 %endfor
 
-    uint8_t globals_data_less[GLOBALS_SIZE_ALIGNED];
-    memcpy(&globals_data_less[0], &base_inputs, sizeof(elem_count_t));
+    uint8_t globals_data[GLOBALS_SIZE_ALIGNED];
+    memcpy(&globals_data[0], &elems_per_dpu, sizeof(elem_count_t));
 
 % for global_value in pipeline["globals"]:
-    memcpy(&globals_data_less[GLOBAL_${ loop.index }_OFFSET], global_${ loop.index }, sizeof(global_${ loop.index }_t));
+    memcpy(&globals_data[GLOBAL_${ loop.index }_OFFSET], global_${ loop.index }, sizeof(global_${ loop.index }_t));
 % endfor
 
-    uint8_t globals_data_more[GLOBALS_SIZE_ALIGNED];
-    memcpy(globals_data_more, globals_data_less, sizeof(globals_data_more));
-    *((uint32_t*)globals_data_more) += 1;
+    uint8_t globals_data_end[GLOBALS_SIZE_ALIGNED];
+    memcpy(globals_data_end, globals_data, sizeof(globals_data_end));
+    memcpy(&globals_data_end[0], &final_dpu_elems, sizeof(elem_count_t));
+
+    uint8_t globals_data_empty[GLOBALS_SIZE_ALIGNED];
+    memcpy(globals_data_empty, globals_data, sizeof(globals_data_end));
+    elem_count_t no_input = 0;
+    memcpy(&globals_data_empty[0], &no_input, sizeof(elem_count_t));
 
     DPU_FOREACH(set, dpu, dpu_id) {
-        if (dpu_id < remaining_elems) {
-            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)globals_data_more));
+        if (dpu_id < nr_dpus - empty_dpus - 1) {
+            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)globals_data));
+        } else if (dpu_id == nr_dpus - empty_dpus - 1) {
+            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)globals_data_end));
         } else {
-            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)globals_data_less));
+            DPU_ASSERT(dpu_prepare_xfer(dpu, (void*)globals_data_empty));
         }
     }
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "globals_input_buffer", 0, GLOBALS_SIZE_ALIGNED, DPU_XFER_DEFAULT));
